@@ -5,14 +5,14 @@ export const root = path.resolve(import.meta.dirname, '..');
 export const toolRoot = path.join(root, '.tools', 'phase4');
 export const pins = Object.freeze({
   wasmtime: {
-    version: '46.0.3', directory: 'wasmtime-v46.0.3-x86_64-linux',
-    url: 'https://github.com/bytecodealliance/wasmtime/releases/download/v46.0.3/wasmtime-v46.0.3-x86_64-linux.tar.xz',
-    sha256: 'a13087bea96394e183a205d653e7337d50b596aca3090d496330efc770a54121'
+    version: '49.0.0', directory: 'wasmtime-v49.0.0-x86_64-linux',
+    url: 'https://github.com/bytecodealliance/wasmtime/releases/download/v49.0.0/wasmtime-v49.0.0-x86_64-linux.tar.xz',
+    sha256: 'a956c279ac6e80109369a285db30fc46f68239fa1bbeb03ccfa8e913bbca85fc'
   },
   'wasm-tools': {
-    version: '1.252.0', directory: 'wasm-tools-1.252.0-x86_64-linux',
-    url: 'https://github.com/bytecodealliance/wasm-tools/releases/download/v1.252.0/wasm-tools-1.252.0-x86_64-linux.tar.gz',
-    sha256: '097b1181d5b2bc3f2ebc44b4e72edf18308902023f1f1483a1a7dc1268ea988d'
+    version: '1.259.0', directory: 'wasm-tools-1.259.0-x86_64-linux',
+    url: 'https://github.com/bytecodealliance/wasm-tools/releases/download/v1.259.0/wasm-tools-1.259.0-x86_64-linux.tar.gz',
+    sha256: '3e9b374b4c7715b771b69bf0d65a337990ed4546ec5e97e01c0ff587dfc52160'
   }
 });
 export function tool(name) {
