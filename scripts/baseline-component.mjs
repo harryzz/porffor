@@ -13,7 +13,7 @@ versions.push(execFileSync('rustc',['+1.95.0','--version'],{encoding:'utf8'}).tr
 fs.writeFileSync(path.join(logs,'versions.txt'),versions.join('\n')+'\n');
 for(const [label,args] of [
   ['runtime-build',['scripts/build-component-runtime.mjs']],
-  ['component-tests',['--test','tests/command-arguments.test.mjs','tests/component-command.test.mjs','tests/primitive-component.test.mjs','tests/string-component.test.mjs','tests/array-component.test.mjs','tests/object-component.test.mjs']]
+  ['component-tests',['--test','tests/command-arguments.test.mjs','tests/component-command.test.mjs','tests/primitive-component.test.mjs','tests/string-component.test.mjs','tests/array-component.test.mjs','tests/object-component.test.mjs','tests/closure-component.test.mjs']]
 ]) {
   const log=path.join(logs,`${label}.log`),fd=fs.openSync(log,'w');
   try {

@@ -11,7 +11,7 @@ function wasm(source,stringHeapBytes){const output=[],host=coreHost([],x=>output
 for(const c of objectCases)test(`object core semantics: ${c.name}`,()=>{assert.deepEqual(executeLowered(compile(c.source)),c.expected);assert.deepEqual(wasm(c.source),c.expected);});
 test('collector traces mutated object graphs and terminates on cycles',()=>{
  const source='let cycle={next:null};cycle.next=cycle;console.log(cycle);';
- assert.throws(()=>compile(source),/direct object printing/);
+ assert.throws(()=>compile(source),/direct heap-value printing/);
  const executable='let cycle={next:null};cycle.next=cycle;console.log(cycle===cycle);';
  // Identity equality is deliberately rejected, so observe the cycle via a scalar property.
  const supported='let cycle={next:null,number:9};cycle.next=cycle;let holder={value:{text:"rooted"}};for(let i=0;i<500;i++){let garbage="garbage="+i;}console.log(cycle.number);console.log(holder.value.text);';

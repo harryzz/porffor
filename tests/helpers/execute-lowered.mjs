@@ -61,6 +61,8 @@ export function executeLowered(mod, { maxSteps = 100000, arguments: args = [] } 
           case 'ValueGetIndex': value = a[b]; break;
           case 'ValueSetIndex': a[b]=c;value=c;break;
           case 'ObjectCreate': value={properties:new Map(),prototype:b};break;
+          case 'ClosureCreate': value={functionName:[...functions.keys()].filter(name=>name.startsWith('lambda'))[a],environment:b};break;
+          case 'IndirectCall': value=invoke(a.functionName,[a.environment,b]);break;
           case 'ValueGetProperty': {let obj=a;value=b==='length'&&(typeof a==='string'||Array.isArray(a)||ArrayBuffer.isView(a))?a.length:undefined;while(obj&&obj.properties){if(obj.properties.has(b)){value=obj.properties.get(b);break;}obj=obj.prototype;}break;}
           case 'ValueSetProperty': a.properties.set(b,c);value=c;break;
           case 'ValueAdd': value = a + b; break;

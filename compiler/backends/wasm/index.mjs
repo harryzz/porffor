@@ -48,6 +48,7 @@ function toInt32Body() {
 export function emitCoreWasm(mod, { target = 'host', stringHeapBytes } = {}) {
   if (!['host', 'command-adapter'].includes(target)) throw new TypeError(`Wasm: unsupported target ${target}`);
   validate(mod);
+  const closureFunctions=mod.functions.filter(f=>f.name.startsWith('lambda'));
   // Opaque runtime representations deliberately have no backend mapping yet.
   const requireType = t => {
     if (t !== 'none' && !Object.hasOwn(types, t)) throw new TypeError(`Wasm: unsupported representation ${t}`);
@@ -61,7 +62,7 @@ export function emitCoreWasm(mod, { target = 'host', stringHeapBytes } = {}) {
       b.instructions.forEach(n => { requireType(n.type); used.add(n.op); });
     }
   }
-  const heapEnabled = [...used].some(op=>['ValueString','ValueAdd','StringLength','ValueLength','ArrayCreate','Uint8ArrayCreate','ValueGetIndex','ValueSetIndex','ObjectCreate','ValueGetProperty','ValueSetProperty'].includes(op));
+  const heapEnabled = [...used].some(op=>['ValueString','ValueAdd','StringLength','ValueLength','ArrayCreate','Uint8ArrayCreate','ValueGetIndex','ValueSetIndex','ObjectCreate','ClosureCreate','IndirectCall','ValueGetProperty','ValueSetProperty'].includes(op));
   const stringSupport = heapEnabled ? stringHelpers(
     mod.functions.flatMap(f=>f.blocks.flatMap(b=>b.instructions.filter(n=>n.op==='ValueString').map(n=>n.value))),
     stringHeapBytes === undefined ? {} : {heapBytes:stringHeapBytes}
@@ -97,6 +98,7 @@ export function emitCoreWasm(mod, { target = 'host', stringHeapBytes } = {}) {
     intrinsicIndices.set(op, imports.length);
     imports.push([...string(target === 'command-adapter' ? '__main_module__' : 'porffor'), ...string(name), 0, ...uleb(signature(params, result))]);
   }
+  if(used.has('IndirectCall')){used.add('ClosureEnvironment');used.add('ClosureCode');}
   const functionIds = new Map(mod.functions.map((f, i) => [f.name, imports.length + i]));
   const functionTypes = mod.functions.map(f => uleb(signature(f.params.map(p => p.type), f.result)));
   const helpers = new Map();
@@ -120,6 +122,8 @@ export function emitCoreWasm(mod, { target = 'host', stringHeapBytes } = {}) {
       b.params.forEach(p => allocate(p.id, p.type));
       b.instructions.filter(n => n.id !== null).forEach(n => allocate(n.id, n.type));
     }
+    const closureDispatch=f.blocks.some(b=>b.instructions.some(n=>n.op==='IndirectCall'))?f.params.length+locals.length:null;
+    if(closureDispatch!==null)locals.push('i32');
     const pc = f.params.length + locals.length;
     locals.push('i32');
     const frame = f.params.length + locals.length;
@@ -151,8 +155,18 @@ export function emitCoreWasm(mod, { target = 'host', stringHeapBytes } = {}) {
     for (const [index, b] of f.blocks.entries()) {
       code.push(...get(pc), ...i32(index), 0x46, 0x04, 0x40);
       for (const n of b.instructions) {
-        for (const arg of n.args) code.push(...read(arg));
-        if (helpers.has(n.op)) code.push(0x10,...uleb(helpers.get(n.op).index));
+        if(n.op==='IndirectCall'){
+          code.push(0x02,0x7e,...read(n.args[0]),0x10,...uleb(helpers.get('ClosureCode').index),...set(closureDispatch));
+          for(let target=0;target<closureFunctions.length;target++){
+            code.push(...get(closureDispatch),...i32(target),0x46,0x04,0x7e,
+              ...read(n.args[0]),0x10,...uleb(helpers.get('ClosureEnvironment').index),...read(n.args[1]),0x10,...uleb(functionIds.get(closureFunctions[target].name)),0x05);
+          }
+          code.push(0x00,...Array(closureFunctions.length).fill(0x0b),0x0b);
+        } else {
+          for (const arg of n.args) code.push(...read(arg));
+        }
+        if(n.op==='IndirectCall'){}
+        else if (helpers.has(n.op)) code.push(0x10,...uleb(helpers.get(n.op).index));
         else if (Object.hasOwn(opcode, n.op)) code.push(opcode[n.op]);
         else switch (n.op) {
           case 'I32Const': case 'U32Const': code.push(...i32(n.value)); break;

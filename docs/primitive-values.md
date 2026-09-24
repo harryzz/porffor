@@ -42,7 +42,7 @@ The [numeric subset](numeric-subset.md) remains available, with these additions 
 
 `Porffor.argumentNumber` still requires a Number index. In primitive mode a non-number index triggers a checked core trap; it is not silently coerced. Invalid numeric indices and parsing failures retain the documented NaN result. The numeric mode rejects statically known boolean indices during lowering as before.
 
-Strings, regex literals, BigInt literals, symbols, objects, arrays, closures, property access, indirect calls, coercive equality, `typeof`, `void`, exceptions and async remain unsupported. Unknown/unsupported operations fail explicitly. There is no fallthrough from an unsupported string/object operation into numeric coercion.
+This primitive-only increment rejects strings, regex literals, BigInt literals, symbols, objects, arrays, closures, property access, indirect calls, coercive equality, `typeof`, `void`, exceptions and async. Later bounded heap migrations add strings, arrays, objects and captured arrow closures; see the [string](string-values.md), [array](array-values.md), [object](object-values.md) and [closure](closure-values.md) contracts. Unknown operations fail explicitly rather than falling through to numeric coercion.
 
 Semantic reference: ECMAScript [ToNumber](https://tc39.es/ecma262/multipage/abstract-operations.html#sec-tonumber), [ToBoolean](https://tc39.es/ecma262/multipage/abstract-operations.html#sec-toboolean), and [IsStrictlyEqual](https://tc39.es/ecma262/multipage/abstract-operations.html#sec-isstrictlyequal). The implemented subset excludes objects and their observable conversion hooks.
 
@@ -62,7 +62,7 @@ The retained native backend uses a split `{value, type}` in many computations an
 
 The boxed prefix is `0xfff8000000000000`; type IDs occupy bits 43–50 and payloads use the low 32 bits. NaN canonicalization prevents arithmetic or external numeric NaNs from colliding with tags. This increment canonicalizes all boxed NaNs; preserving NaN payloads is not a JS observable requirement for these primitives. Signed zero is preserved.
 
-This is the scalar packing convention. The native array-specific `JV_ZERO_BITS` convention for distinguishing a stored zero from an empty slot is not used: arrays are not implemented. Non-null object tags, string tags, invalid boolean payloads and other unsupported boxed values trap in primitive consumers. `linear-ptr` still has no executable backend mapping.
+This is the scalar packing convention for primitive consumers. The native array-specific `JV_ZERO_BITS` convention distinguishes a stored zero from an empty slot in heap-aware array helpers. Primitive-only consumers trap on non-null object/string tags, invalid boolean payloads and other unsupported boxed values; heap-aware helpers are documented by the later value contracts. `linear-ptr` still has no executable backend mapping.
 
 Exported internal functions with jsval parameters/results use raw i64/BigInt bits at the core-Wasm API. That is an internal compiler ABI, not a public JS or WIT value ABI. Callers must use valid packed values. This representation does not add general JavaScript argument marshalling to exported functions.
 
@@ -103,7 +103,7 @@ This is the explicit next boundary, not a claim that a collector exists:
 | Roots | Spill live jsval references into an explicit linear-memory shadow stack at allocation/call safepoints; maintain frame links across recursion. No conservative native stack/register scan. Verify loop-carried references and parallel edge assignments under collection. |
 | Collection | Nonmoving tracing initially; no reclamation before all live references, globals and host-owned handles have explicit roots. Add allocation-pressure and repeated-collection tests before calling GC complete. |
 | Exceptions | Separate completion/exception lowering is required before source throw/catch or object coercion hooks. Primitive contract traps do not substitute for JS exceptions. |
-| Later migrations | Arrays/typed arrays, objects/properties, closures and indirect calls, built-ins. Each needs declared effects and Node/C/Wasm differential evidence. |
+| Later migrations | Typed arrays, mutable closure captures, general callable values, exceptions, built-ins and WIT bindings. Each needs declared effects and Node/C/Wasm differential evidence. |
 
 No speculative allocator API, fake collector, string handle table or hidden host-object representation is introduced by this milestone. Unsupported heap-bearing values trap rather than entering the primitive path.
 

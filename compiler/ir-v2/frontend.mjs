@@ -35,6 +35,10 @@ function checkSyntax(node, topLevel = false, dynamic = false) {
         child(p);
       });
       child(node.body); break;
+    case 'ArrowFunctionExpression':
+      if (!dynamic || node.async || node.generator) reject(node, 'only synchronous arrow closures are supported');
+      node.params.forEach(p=>{if(p.type!=='Identifier')reject(p,'only simple arrow parameters are supported');});
+      node.body.type==='BlockStatement'?child(node.body):child(node.body); break;
     case 'VariableDeclaration':
       if (!['let', 'const'].includes(node.kind)) reject(node, 'use initialized let/const declarations; var is unsupported');
       node.declarations.forEach(d => {
@@ -103,16 +107,21 @@ function checkSyntax(node, topLevel = false, dynamic = false) {
 }
 
 class FunctionBuilder {
-  constructor(owner, declarations, name, params, dynamic = false) {
+  constructor(owner, declarations, name, params, dynamic = false, arrow = null, arrows = new Map()) {
     this.owner = owner;
     this.dynamic = dynamic;
     this.declarations = declarations;
+    this.arrows = arrows;
+    this.arrow = arrow;
     this.nextValue = 0;
     this.blocks = [];
-    this.params = params.map(() => S.parameter(this.id(), 'value'));
+    this.params = arrow ? [S.parameter(this.id(),'value'),S.parameter(this.id(),'value')] : params.map(() => S.parameter(this.id(), 'value'));
     this.state = { block: S.block('entry', [], [], null), env: new Map() };
     this.blocks.push(this.state.block);
-    params.forEach((p, i) => this.state.env.set(p._variable, this.params[i].id));
+    if (arrow) {
+      this.captureEnv=this.params[0].id; this.argumentPack=this.params[1].id;
+      params.forEach((p,i)=>this.state.env.set(p._variable,this.emit('JsClosureArgument',[this.argumentPack],{index:i})));
+    } else params.forEach((p, i) => this.state.env.set(p._variable, this.params[i].id));
     this.name = name;
   }
   id() { return `v${this.nextValue++}`; }
@@ -123,10 +132,16 @@ class FunctionBuilder {
   }
   binding(node) {
     const binding = node._resolvedVariable ?? node._variable;
-    if (!binding || !this.state.env.has(binding)) reject(node, 'uninitialized, captured or unsupported binding');
+    if (!binding || (!this.state.env.has(binding) && !this.arrow?.captures.some(c=>c.binding===binding))) reject(node, 'uninitialized, captured or unsupported binding');
     return binding;
   }
-  read(node) { return this.state.env.get(this.binding(node)); }
+  read(node) {
+    const b=this.binding(node);
+    if(this.state.env.has(b))return this.state.env.get(b);
+    const capture=this.arrow?.captures.find(c=>c.binding===b);
+    if(capture)return this.emit('JsCaptureGet',[this.captureEnv],{key:capture.name});
+    reject(node,'uninitialized, captured or unsupported binding');
+  }
   writable(node) {
     const b = this.binding(node);
     if (b.kind === 'const') reject(node, 'assignment to const');
@@ -145,6 +160,12 @@ class FunctionBuilder {
           if (node.name === 'NaN' || node.name === 'Infinity') return this.emit('JsNumber', [], { value: node.name === 'NaN' ? NaN : Infinity });
         }
         return this.read(node);
+      case 'ArrowFunctionExpression': {
+        const closure=this.arrows.get(node);
+        if(!closure)reject(node,'arrow closure was not collected');
+        const env=this.emit('JsObject',closure.captures.map(c=>this.readBinding(c.binding,node)),{keys:closure.captures.map(c=>c.name)});
+        return this.emit('JsClosureCreate',[env],{callee:closure.name});
+      }
       case 'MemberExpression':
         if (node.computed && !(node.property.type==='Literal'&&typeof node.property.value==='string'))
           return this.emit('JsDynamicPropertyGet', [this.expression(node.object),this.expression(node.property)]);
@@ -199,12 +220,21 @@ class FunctionBuilder {
         }
         if (node.callee.type !== 'Identifier') reject(node, 'console.log may only be used as a statement');
         const target = this.declarations.get(node.callee._resolvedVariable);
-        if (!target) reject(node, 'call target must be a top-level function binding');
-        if (node.arguments.length !== target.node.params.length) reject(node, 'direct call arity mismatch');
-        return this.emit('JsDirectCall', node.arguments.map(n => this.expression(n)), { callee: target.name });
+        if (target) {
+          if (node.arguments.length !== target.node.params.length) reject(node, 'direct call arity mismatch');
+          return this.emit('JsDirectCall', node.arguments.map(n => this.expression(n)), { callee: target.name });
+        }
+        if(this.dynamic)return this.emit('JsClosureCall',[this.expression(node.callee),...node.arguments.map(n=>this.expression(n))]);
+        reject(node,'call target must be a top-level function binding');
       }
       default: reject(node, `unsupported expression ${node.type}`);
     }
+  }
+  readBinding(binding,node) {
+    if(this.state.env.has(binding))return this.state.env.get(binding);
+    const capture=this.arrow?.captures.find(c=>c.binding===binding);
+    if(capture)return this.emit('JsCaptureGet',[this.captureEnv],{key:capture.name});
+    return this.read({...node,_resolvedVariable:binding});
   }
   nextState(keys) {
     const params = keys.map(() => S.parameter(this.id(), 'value'));
@@ -272,7 +302,8 @@ class FunctionBuilder {
     }
   }
   finish(body, main = false) {
-    body.forEach(n => this.statement(n));
+    if(this.arrow&&this.owner.body.type!=='BlockStatement'){this.state.block.terminator=S.returnValue(this.expression(this.owner.body));this.state=null;}
+    else body.forEach(n => this.statement(n));
     if (this.state) {
       if (!main && !this.dynamic) reject(this.owner, 'function can fall through without returning a value');
       this.state.block.terminator = S.returnValue(main ? null : this.emit('JsUndefined'));
@@ -292,8 +323,35 @@ export function buildSemantic(source, { dynamic = false } = {}) {
     if (declarations.has(node._variable)) reject(node, 'duplicate function binding');
     declarations.set(node._variable, { node, name: `fn${declarations.size}` });
   }
+  const arrows=new Map(),arrowDescriptors=[];
+  const visit=(node,rootArrow=null)=>{
+    if(!node||typeof node!=='object')return;
+    if(node.type==='ArrowFunctionExpression'&&node!==rootArrow){
+      const locals=new Set(node.params.map(p=>p._variable));
+      const refs=[];
+      const scan=n=>{if(!n||typeof n!=='object')return;if(n!==node&&n.type==='ArrowFunctionExpression')return;
+        if(n.type==='Identifier'&&n._resolvedVariable)refs.push({name:n.name,binding:n._resolvedVariable});
+        for(const [k,v] of Object.entries(n))if(!k.startsWith('_')&&k!=='type'&&v&&typeof v==='object'){if(Array.isArray(v))v.forEach(scan);else scan(v);}
+      };
+      scan(node.body);
+      const declarationScan=n=>{if(!n||typeof n!=='object')return;if(n.type==='VariableDeclarator')locals.add(n.id._variable);for(const [k,v] of Object.entries(n))if(!k.startsWith('_')&&k!=='type'&&v&&typeof v==='object'){if(Array.isArray(v))v.forEach(declarationScan);else declarationScan(v);}};
+      declarationScan(node.body);
+      const captures=[];
+      for(const r of refs)if(!locals.has(r.binding)&&!declarations.has(r.binding)&&!captures.some(c=>c.binding===r.binding)){
+        if(r.binding.kind!=='const')reject(node,`closure capture ${r.name} must be const in this increment`);
+        captures.push(r);
+      }
+      const descriptor={node,name:`lambda${arrowDescriptors.length}`,captures};arrows.set(node,descriptor);arrowDescriptors.push(descriptor);
+      // Find nested arrow functions without treating their references as this arrow's captures.
+      for(const [k,v] of Object.entries(node.body))if(!k.startsWith('_')&&k!=='type'&&v&&typeof v==='object'){if(Array.isArray(v))v.forEach(x=>visit(x,node));else visit(v,node);}
+      return;
+    }
+    for(const [k,v] of Object.entries(node))if(!k.startsWith('_')&&k!=='type'&&v&&typeof v==='object'){if(Array.isArray(v))v.forEach(x=>visit(x));else visit(v);}
+  };
+  visit(ast);
   const functions = [...declarations.values()].map(({ node, name }) =>
-    new FunctionBuilder(node, declarations, name, node.params, dynamic).finish(node.body.body));
-  functions.push(new FunctionBuilder(ast, declarations, 'main', [], dynamic).finish(ast.body, true));
+    new FunctionBuilder(node, declarations, name, node.params, dynamic,null,arrows).finish(node.body.body));
+  for(const closure of arrowDescriptors)functions.push(new FunctionBuilder(closure.node,declarations,closure.name,closure.node.params,dynamic,closure,arrows).finish(closure.node.body.type==='BlockStatement'?closure.node.body.body:[],false));
+  functions.push(new FunctionBuilder(ast, declarations, 'main', [], dynamic,null,arrows).finish(ast.body, true));
   return S.validate(S.module('semantic', functions));
 }

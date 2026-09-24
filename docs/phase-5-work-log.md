@@ -235,6 +235,18 @@ Added runtime string-key reads and writes for ordinary objects. Fixed dot and li
 
 AI disclosure: OpenAI Codex authored this increment. Work remains local; no remote PR, message, or push was submitted.
 
+## Increment 9 — captured arrow closures and indirect calls (2026-09-24)
+
+Added a bounded closure runtime slice. Synchronous arrow functions can capture lexically visible `const` bindings, be assigned to locals, returned from functions, and called indirectly. Each closure owns a heap environment object. Closure calls pack arguments into an array and share a uniform `(environment, arguments) -> jsval` Wasm signature. The backend dispatches on the checked closure target index. Wasm tables and element sections were rejected by the current component adapter, so dispatch stays within the adapter's supported core module subset.
+
+Closure blocks use a dedicated function jsval tag and hold the target index plus an environment reference. Marking visits the closure environment, which in turn retains captured strings and heap values. The test interpreter models the same closure layout behavior.
+
+The supported source boundary requires captured bindings to be `const`. Mutable captures, function declarations/expressions used as values, `this`, `arguments`, async/generator functions, constructors, direct closure printing/equality and arbitrary callable values remain unsupported. Missing and extra arguments use the packed argument-array behavior: missing values read as undefined and extra values are unused.
+
+Added six shared Node/C/Wasm/component cases covering lexical capture, separate environments, runtime target selection, returned closures under collection pressure, captured-string retention, and block-bodied arrows. Focused closure validation passes: 9 core tests, 6 differential tests, and 6 component tests. The broader 370-test IR/backend suite and repository baseline both pass, including closure differential and component checks.
+
+AI disclosure: OpenAI Codex authored this increment. Work remains local; no remote PR, message, or push was submitted.
+
 ## Increment 8 — explicit object prototype chains (2026-09-24)
 
 Added the minimal explicit prototype surface through unshadowed `Object.create(proto)`, where `proto` must be an object or `null`. Reads search own fields, linked overflow pages, and then each prototype. Writes continue to affect only the receiver's own fields. Ordinary literals use a null-like prototype because built-in `Object.prototype` behavior is outside this runtime slice; prototype mutation and built-in prototype objects remain unsupported.

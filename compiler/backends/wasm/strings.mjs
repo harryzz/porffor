@@ -3,14 +3,14 @@
 // global roots, and aggregate marking recursively traces packed child values.
 import {body,get,set,i32,i64,f64,uleb} from './encoding.mjs';
 import {primitiveHelpers} from './primitives.mjs';
-import {VALUE_STRING,VALUE_ARRAY,VALUE_UINT8ARRAY,VALUE_OBJECT,VALUE_NULL,VALUE_UNDEFINED,VALUE_FALSE,VALUE_TRUE,STRING_HEAP_BYTES} from '../../runtime-v2/value-layout.mjs';
+import {VALUE_STRING,VALUE_ARRAY,VALUE_UINT8ARRAY,VALUE_OBJECT,VALUE_FUNCTION,VALUE_NULL,VALUE_UNDEFINED,VALUE_FALSE,VALUE_TRUE,STRING_HEAP_BYTES} from '../../runtime-v2/value-layout.mjs';
 const gg=i=>[0x23,...uleb(i)],gs=i=>[0x24,...uleb(i)];
 const isString=i=>[...get(i),...i64(0xffffffff00000000n),0x83,...i64(VALUE_STRING),0x51];
 const isTag=(i,value)=>[...get(i),...i64(0xffffffff00000000n),0x83,...i64(value),0x51];
 const eq=(i,v)=>[...get(i),...i64(v),0x51];
 const fail=c=>[...c,0x04,0x40,0x00,0x0b],ret=(c,v)=>[...c,0x04,0x40,...v,0x0f,0x0b];
 const load=[0x28,2,0],store=[0x36,2,0],load64=[0x29,3,0],store64=[0x37,3,0];
-const loadAt=o=>[0x28,2,...uleb(o)],storeAt=o=>[0x36,2,...uleb(o)],store64At=o=>[0x37,3,...uleb(o)];
+const loadAt=o=>[0x28,2,...uleb(o)],load64At=o=>[0x29,3,...uleb(o)],storeAt=o=>[0x36,2,...uleb(o)],store64At=o=>[0x37,3,...uleb(o)];
 const tag=p=>[...p,0xad,...i64(VALUE_STRING),0x84];
 const tagFor=(value,p)=>[...p,0xad,...i64(value),0x84];
 
@@ -75,7 +75,20 @@ export function stringHelpers(texts,{heapBytes=STRING_HEAP_BYTES}={}) {
     ...fail([...get(4),...i32(8),0x49]),...fail([...get(3),...get(4),0x4b]),
     ...fail([...get(4),...get(2),...i32(32),0x6b,...i32(4),0x76,0x4b]),...get(1)
   ])};
-  r.MarkValue={params:['jsval'],result:'none',dependencies:['StringPointer','ArrayPointer','Uint8ArrayPointer','ObjectPointer'],emit:call=>body(['i32','i32','i32'],[
+  r.ClosurePointer={params:['jsval'],result:'i32',dependencies:['HeapInit'],emit:call=>body(['i32','i32','i32'],[
+    ...call('HeapInit'),...fail([...isTag(0,VALUE_FUNCTION),0x45]),...get(0),0xa7,...set(1),...fail([...get(1),0x45]),
+    ...fail([...get(1),...gg(0),...i32(rootBytes+8),0x6a,0x49]),
+    ...get(1),...i32(4),0x6b,...load,...set(2),...fail([...get(2),0x45]),...fail([...get(2),...i32(3),0x4b]),
+    ...get(1),...i32(8),0x6b,...load,...set(2),...fail([...get(2),...i32(24),0x49]),
+    ...fail([...get(1),...gg(0),0x6b,...i32(8),0x6b,...i32(24),0x6a,...gg(1),0x4b]),...get(1)
+  ])};
+  r.ClosureCreate={params:['f64','jsval'],result:'jsval',dependencies:['HeapAlloc'],emit:call=>body(['i32','i32'],[
+    ...get(0),0xfc,3,...set(2),...fail([...get(2),...i32(0),0x48]),...i32(24),...call('HeapAlloc'),...set(3),
+    ...get(3),...get(2),...store,...get(3),...i32(0),...storeAt(4),...get(3),...get(1),...store64At(8),...tagFor(VALUE_FUNCTION,get(3))
+  ])};
+  r.ClosureCode={params:['jsval'],result:'i32',dependencies:['ClosurePointer'],emit:call=>body([], [...get(0),...call('ClosurePointer'),...load])};
+  r.ClosureEnvironment={params:['jsval'],result:'jsval',dependencies:['ClosurePointer'],emit:call=>body([], [...get(0),...call('ClosurePointer'),...load64At(8)])};
+  r.MarkValue={params:['jsval'],result:'none',dependencies:['StringPointer','ArrayPointer','Uint8ArrayPointer','ObjectPointer','ClosurePointer'],emit:call=>body(['i32','i32','i32'],[
     ...isString(0),0x04,0x40,...get(0),...call('StringPointer'),...set(1),...get(1),...i32(4),0x6b,...i32(3),...store,0x0f,0x0b,
     ...isTag(0,VALUE_UINT8ARRAY),0x04,0x40,...get(0),...call('Uint8ArrayPointer'),...set(1),...get(1),...i32(4),0x6b,...i32(3),...store,0x0f,0x0b,
     ...isTag(0,VALUE_ARRAY),0x04,0x40,...get(0),...call('ArrayPointer'),...set(1),
@@ -93,7 +106,9 @@ export function stringHelpers(texts,{heapBytes=STRING_HEAP_BYTES}={}) {
         ...get(1),...i32(32),0x6a,...get(3),...i32(16),0x6c,0x6a,...load64,...call('MarkValue'),
         ...get(3),...i32(1),0x6a,...set(3),0x0c,0,0x0b,0x0b,
       ...get(1),...i32(8),0x6a,...load64,...call('MarkValue'),...get(1),...i32(16),0x6a,...load64,...call('MarkValue'),
-    0x0b
+    0x0b,
+    ...isTag(0,VALUE_FUNCTION),0x04,0x40,...get(0),...call('ClosurePointer'),...set(1),...get(1),...i32(4),0x6b,...load,...i32(3),0x46,0x04,0x40,0x0f,0x0b,
+      ...get(1),...i32(4),0x6b,...i32(3),...store,...get(1),...i32(8),0x6a,...load64,...call('MarkValue'),0x0f,0x0b
   ])};
   r.Sweep={params:[],result:'none',dependencies:['HeapInit'],emit:call=>body(['i32','i32','i32','i32'],[
     ...i32(rootBytes),...set(0),0x02,0x40,0x03,0x40,...get(0),...gg(1),0x4f,0x0d,1,
@@ -261,10 +276,11 @@ export function stringHelpers(texts,{heapBytes=STRING_HEAP_BYTES}={}) {
     ...call('RootPop'),...call('RootPop'),...get(4),0x05,...get(0),...call('ValueToNumber'),...get(1),...call('ValueToNumber'),0xa0,...call('ValueBoxNumber'),0x0b
   ])};
   r.PrimitiveTruthy=primitiveHelpers.ValueTruthy;
-  r.ValueTruthy={params:['jsval'],result:'i32',dependencies:['StringPointer','ArrayPointer','Uint8ArrayPointer','ObjectPointer','PrimitiveTruthy'],emit:call=>body([], [
+  r.ValueTruthy={params:['jsval'],result:'i32',dependencies:['StringPointer','ArrayPointer','Uint8ArrayPointer','ObjectPointer','ClosurePointer','PrimitiveTruthy'],emit:call=>body([], [
     ...ret(isString(0),[...get(0),...call('StringPointer'),...load,0x45,0x45]),
     ...ret(isTag(0,VALUE_ARRAY),[...get(0),...call('ArrayPointer'),0x1a,...i32(1)]),
     ...ret(isTag(0,VALUE_UINT8ARRAY),[...get(0),...call('Uint8ArrayPointer'),0x1a,...i32(1)]),
+    ...ret(isTag(0,VALUE_FUNCTION),[...get(0),...call('ClosurePointer'),0x1a,...i32(1)]),
     ...isTag(0,VALUE_OBJECT),...get(0),0xa7,0x45,0x45,0x71,0x04,0x40,...get(0),...call('ObjectPointer'),0x1a,...i32(1),0x0f,0x0b,
     ...get(0),...call('PrimitiveTruthy')
   ])};

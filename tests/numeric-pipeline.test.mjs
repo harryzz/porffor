@@ -34,7 +34,7 @@ for (const [source, pattern] of [
   ['const x=1;x=2;', /assignment to const/],
   ['let x=1;function f(){return x;}console.log(f());', /captured/],
   ['function f(){function g(){return 1;}return g();}', /top-level/],
-  ['let f=(x)=>x;', /ArrowFunctionExpression/],
+  ['let f=(x)=>x;', /synchronous arrow closures/],
   ['function f(x){return x;}let g=f;', /unsupported binding/],
   ['function f(x){return x;}console.log(f());', /arity mismatch/],
   ['function f(x){if(x)return 1;}console.log(f(true));', /fall through/],

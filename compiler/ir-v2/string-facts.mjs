@@ -25,6 +25,13 @@ export function checkHeapUses(mod) {
           else if(n.op==='JsObject'){
             add(dest,['object']);n.keys.forEach((name,i)=>{if(!properties.has(name))properties.set(name,new Set());for(const t of args[i])if(!properties.get(name).has(t)){properties.get(name).add(t);changed=true;}});
           }else if(n.op==='JsObjectCreate')add(dest,['object']);
+          else if(n.op==='JsClosureCreate')add(dest,['function']);
+          else if(n.op==='JsCaptureGet')add(dest,properties.get(n.key)??[]);
+          else if(n.op==='JsClosureArgument'){
+            for(const caller of mod.functions)for(const cb of caller.blocks)for(const call of cb.instructions)if(call.op==='JsClosureCall'&&call.args[n.index+1])add(dest,get(key(caller,call.args[n.index+1])));
+          }else if(n.op==='JsClosureCall'){
+            for(const target of mod.functions)if(target.name.startsWith('lambda'))add(dest,get(result(target)));
+          }
           else if(n.op==='JsPropertySet'){
             add(dest,args[1]);if(!properties.has(n.key))properties.set(n.key,new Set());for(const t of args[1])if(!properties.get(n.key).has(t)){properties.get(n.key).add(t);changed=true;}
           }else if(n.op==='JsPropertyGet'){
@@ -59,9 +66,9 @@ export function checkHeapUses(mod) {
       if(receiver.size&&[...receiver].every(t=>t==='array'||t==='uint8array')&&index.size&&[...index].every(t=>t==='number'))n.op=n.op==='JsDynamicPropertyGet'?'JsIndexGet':'JsIndexSet';
     }
   }
-  const heap=new Set(['string','array','uint8array','object']),containers=new Set(['string','array','uint8array']);
+  const heap=new Set(['string','array','uint8array','object','function']),containers=new Set(['string','array','uint8array']);
   const only=(set,allowed)=>set.size>0&&[...set].every(x=>allowed.has(x));
-  const safe=new Set(['JsAdd','JsPrint','JsNot','JsStrictEqual','JsStrictNotEqual','JsDirectCall','JsArray','JsUint8Array','JsObject','JsObjectCreate','JsIndexGet','JsIndexSet','JsPropertyGet','JsPropertySet','JsDynamicPropertyGet','JsDynamicPropertySet','JsStringLength']);
+  const safe=new Set(['JsAdd','JsPrint','JsNot','JsStrictEqual','JsStrictNotEqual','JsDirectCall','JsClosureCall','JsClosureCreate','JsCaptureGet','JsClosureArgument','JsArray','JsUint8Array','JsObject','JsObjectCreate','JsIndexGet','JsIndexSet','JsPropertyGet','JsPropertySet','JsDynamicPropertyGet','JsDynamicPropertySet','JsStringLength']);
   for(const f of mod.functions)for(const b of f.blocks)for(const n of b.instructions){
     const args=n.args.map(id=>get(key(f,id)));
     if(n.op==='JsStringLength'&&!only(args[0],containers))throw new TypeError('Heap lowering: .length requires a proven string or array');
@@ -76,8 +83,9 @@ export function checkHeapUses(mod) {
     if((n.op==='JsIndexGet'||n.op==='JsIndexSet')&&!only(args[0],new Set(['array','uint8array'])))throw new TypeError('Heap lowering: indexed access requires a proven array');
     if((n.op==='JsIndexGet'||n.op==='JsIndexSet')&&[...args[1]].some(x=>heap.has(x)))throw new TypeError('Heap lowering: string/object array indices are unsupported');
     if(n.op==='JsUint8Array'&&[...args[0]].some(x=>heap.has(x)))throw new TypeError('Heap lowering: Uint8Array length must be primitive numeric');
-    if(n.op==='JsPrint'&&args[0]&&[...args[0]].some(x=>x==='array'||x==='uint8array'||x==='object'))throw new TypeError('Heap lowering: direct object printing is unsupported');
-    if((n.op==='JsStrictEqual'||n.op==='JsStrictNotEqual')&&args.some(s=>[...s].some(x=>x==='array'||x==='uint8array'||x==='object')))throw new TypeError('Heap lowering: object identity equality is not implemented');
+    if(n.op==='JsClosureCall'&&!only(args[0],new Set(['function'])))throw new TypeError('Heap lowering: indirect call requires a proven closure');
+    if(n.op==='JsPrint'&&args[0]&&[...args[0]].some(x=>x==='array'||x==='uint8array'||x==='object'||x==='function'))throw new TypeError('Heap lowering: direct heap-value printing is unsupported');
+    if((n.op==='JsStrictEqual'||n.op==='JsStrictNotEqual')&&args.some(s=>[...s].some(x=>x==='array'||x==='uint8array'||x==='object'||x==='function')))throw new TypeError('Heap lowering: heap identity equality is not implemented');
     if(n.op==='JsAdd'&&args.some(s=>[...s].some(x=>x==='array'||x==='uint8array'||x==='object')))throw new TypeError('Heap lowering: object coercion is unsupported');
     if(!safe.has(n.op)&&args.some(s=>[...s].some(x=>heap.has(x))))throw new TypeError(`Heap lowering: numeric conversion/order on heap values is unsupported (${n.op})`);
   }

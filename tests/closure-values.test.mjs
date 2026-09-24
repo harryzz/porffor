@@ -1,0 +1,10 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {buildSemantic} from '../compiler/ir-v2/frontend.mjs';
+import {lowerPrimitives} from '../compiler/ir-v2/lower-primitives.mjs';
+import {executeLowered} from './helpers/execute-lowered.mjs';
+import {executeWasm} from './helpers/execute-wasm.mjs';
+import {closureCases} from './helpers/closure-cases.mjs';
+const compile=source=>lowerPrimitives(buildSemantic(source,{dynamic:true}));
+for(const c of closureCases)test(`closure core semantics: ${c.name}`,()=>{const ir=compile(c.source);assert.deepEqual(executeLowered(ir),c.expected);assert.deepEqual(executeWasm(ir),c.expected);});
+for(const source of ['let base=40;const add=x=>x+base;','const add=x=>x+1;console.log(add);','const add=x=>x+1;console.log(add===add);'])test(`reject unsupported closure boundary: ${source}`,()=>assert.throws(()=>compile(source),/closure capture|printing|identity/));

@@ -10,4 +10,5 @@ export const CANONICAL_NAN = 0x7ff8000000000000n;
 export const VALUE_STRING = VALUE_PATTERN | (0x43n << 43n);
 export const VALUE_ARRAY = VALUE_PATTERN | (0x48n << 43n);
 export const VALUE_UINT8ARRAY = VALUE_PATTERN | (0x51n << 43n);
+export const VALUE_FUNCTION = VALUE_PATTERN | (0x5an << 43n);
 export const STRING_HEAP_BYTES = 4 * 1024 * 1024;

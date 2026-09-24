@@ -14,7 +14,7 @@ const integer = new Map([
 ]);
 export function lowerPrimitives(mod) {
   S.validate(mod);
-    const heap = mod.functions.some(f=>f.blocks.some(b=>b.instructions.some(n=>['JsString','JsStringLength','JsArray','JsUint8Array','JsObject','JsObjectCreate','JsIndexGet','JsIndexSet','JsPropertyGet','JsPropertySet','JsDynamicPropertyGet','JsDynamicPropertySet'].includes(n.op))));
+    const heap = mod.functions.some(f=>f.blocks.some(b=>b.instructions.some(n=>['JsString','JsStringLength','JsArray','JsUint8Array','JsObject','JsObjectCreate','JsClosureCreate','JsClosureCall','JsClosureArgument','JsCaptureGet','JsIndexGet','JsIndexSet','JsPropertyGet','JsPropertySet','JsDynamicPropertyGet','JsDynamicPropertySet'].includes(n.op))));
   if (heap) checkHeapUses(mod);
   const functions = mod.functions.map(f => {
     const used = new Set([...f.params,...f.blocks.flatMap(b=>[...b.params,...b.instructions])].map(n=>n.id));
@@ -45,6 +45,17 @@ export function lowerPrimitives(mod) {
           for(let i=0;i<n.args.length;i++)emit(fresh(),'ValueSetProperty','jsval',[n.id,emit(fresh(),'ValueString','jsval',[],{value:n.keys[i]}),n.args[i]]);
         }
         else if (n.op==='JsObjectCreate') emit(n.id,'ObjectCreate','jsval',[emit(fresh(),'F64Const','f64',[],{value:0}),n.args[0]]);
+        else if (n.op==='JsClosureCreate') {
+          const closures=mod.functions.filter(fn=>fn.name.startsWith('lambda'));
+          emit(n.id,'ClosureCreate','jsval',[emit(fresh(),'F64Const','f64',[],{value:closures.findIndex(fn=>fn.name===n.callee)}),n.args[0]]);
+        }
+        else if (n.op==='JsClosureCall') {
+          const packed=emit(fresh(),'ArrayCreate','jsval',[emit(fresh(),'F64Const','f64',[],{value:n.args.length-1})]);
+          for(let i=1;i<n.args.length;i++)emit(fresh(),'ValueSetIndex','jsval',[packed,emit(fresh(),'ValueBoxNumber','jsval',[emit(fresh(),'F64Const','f64',[],{value:i-1})]),n.args[i]]);
+          emit(n.id,'IndirectCall','jsval',[n.args[0],packed]);
+        }
+        else if (n.op==='JsClosureArgument') emit(n.id,'ValueGetIndex','jsval',[n.args[0],emit(fresh(),'ValueBoxNumber','jsval',[emit(fresh(),'F64Const','f64',[],{value:n.index})])]);
+        else if (n.op==='JsCaptureGet') emit(n.id,'ValueGetProperty','jsval',[n.args[0],emit(fresh(),'ValueString','jsval',[],{value:n.key})]);
         else if (n.op === 'JsIndexGet') emit(n.id,'ValueGetIndex','jsval',[...n.args]);
         else if (n.op === 'JsIndexSet') emit(n.id,'ValueSetIndex','jsval',[...n.args]);
         else if (n.op === 'JsPropertyGet') emit(n.id,'ValueGetProperty','jsval',[n.args[0],emit(fresh(),'ValueString','jsval',[],{value:n.key})]);
