@@ -14,7 +14,7 @@ const integer = new Map([
 ]);
 export function lowerPrimitives(mod) {
   S.validate(mod);
-  const heap = mod.functions.some(f=>f.blocks.some(b=>b.instructions.some(n=>['JsString','JsStringLength','JsArray','JsUint8Array','JsObject','JsIndexGet','JsIndexSet','JsPropertyGet','JsPropertySet','JsDynamicPropertyGet','JsDynamicPropertySet'].includes(n.op))));
+    const heap = mod.functions.some(f=>f.blocks.some(b=>b.instructions.some(n=>['JsString','JsStringLength','JsArray','JsUint8Array','JsObject','JsObjectCreate','JsIndexGet','JsIndexSet','JsPropertyGet','JsPropertySet','JsDynamicPropertyGet','JsDynamicPropertySet'].includes(n.op))));
   if (heap) checkHeapUses(mod);
   const functions = mod.functions.map(f => {
     const used = new Set([...f.params,...f.blocks.flatMap(b=>[...b.params,...b.instructions])].map(n=>n.id));
@@ -41,9 +41,10 @@ export function lowerPrimitives(mod) {
         else if (n.op === 'JsUint8Array') emit(n.id,'Uint8ArrayCreate','jsval',[number(n.args[0])]);
         else if (n.op === 'JsObject') {
           if(n.keys.length!==n.args.length)throw new TypeError('Object lowering: property key/value count mismatch');
-          emit(n.id,'ObjectCreate','jsval',[emit(fresh(),'F64Const','f64',[],{value:n.keys.length})]);
+          emit(n.id,'ObjectCreate','jsval',[emit(fresh(),'F64Const','f64',[],{value:n.keys.length}),emit(fresh(),'ValueNull','jsval')]);
           for(let i=0;i<n.args.length;i++)emit(fresh(),'ValueSetProperty','jsval',[n.id,emit(fresh(),'ValueString','jsval',[],{value:n.keys[i]}),n.args[i]]);
         }
+        else if (n.op==='JsObjectCreate') emit(n.id,'ObjectCreate','jsval',[emit(fresh(),'F64Const','f64',[],{value:0}),n.args[0]]);
         else if (n.op === 'JsIndexGet') emit(n.id,'ValueGetIndex','jsval',[...n.args]);
         else if (n.op === 'JsIndexSet') emit(n.id,'ValueSetIndex','jsval',[...n.args]);
         else if (n.op === 'JsPropertyGet') emit(n.id,'ValueGetProperty','jsval',[n.args[0],emit(fresh(),'ValueString','jsval',[],{value:n.key})]);

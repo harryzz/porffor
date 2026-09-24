@@ -24,7 +24,8 @@ export function checkHeapUses(mod) {
           }else if(n.op==='JsUint8Array')add(dest,['uint8array']);
           else if(n.op==='JsObject'){
             add(dest,['object']);n.keys.forEach((name,i)=>{if(!properties.has(name))properties.set(name,new Set());for(const t of args[i])if(!properties.get(name).has(t)){properties.get(name).add(t);changed=true;}});
-          }else if(n.op==='JsPropertySet'){
+          }else if(n.op==='JsObjectCreate')add(dest,['object']);
+          else if(n.op==='JsPropertySet'){
             add(dest,args[1]);if(!properties.has(n.key))properties.set(n.key,new Set());for(const t of args[1])if(!properties.get(n.key).has(t)){properties.get(n.key).add(t);changed=true;}
           }else if(n.op==='JsPropertyGet'){
             if(n.key==='length'&&[...args[0]].some(t=>t==='string'||t==='array'||t==='uint8array'))add(dest,['number']);
@@ -60,7 +61,7 @@ export function checkHeapUses(mod) {
   }
   const heap=new Set(['string','array','uint8array','object']),containers=new Set(['string','array','uint8array']);
   const only=(set,allowed)=>set.size>0&&[...set].every(x=>allowed.has(x));
-  const safe=new Set(['JsAdd','JsPrint','JsNot','JsStrictEqual','JsStrictNotEqual','JsDirectCall','JsArray','JsUint8Array','JsObject','JsIndexGet','JsIndexSet','JsPropertyGet','JsPropertySet','JsDynamicPropertyGet','JsDynamicPropertySet','JsStringLength']);
+  const safe=new Set(['JsAdd','JsPrint','JsNot','JsStrictEqual','JsStrictNotEqual','JsDirectCall','JsArray','JsUint8Array','JsObject','JsObjectCreate','JsIndexGet','JsIndexSet','JsPropertyGet','JsPropertySet','JsDynamicPropertyGet','JsDynamicPropertySet','JsStringLength']);
   for(const f of mod.functions)for(const b of f.blocks)for(const n of b.instructions){
     const args=n.args.map(id=>get(key(f,id)));
     if(n.op==='JsStringLength'&&!only(args[0],containers))throw new TypeError('Heap lowering: .length requires a proven string or array');
@@ -69,6 +70,7 @@ export function checkHeapUses(mod) {
       if(!only(args[0],allowed))throw new TypeError(`Heap lowering: property ${n.key} requires a proven object`);
     }
     if(n.op==='JsPropertySet'&&!only(args[0],new Set(['object'])))throw new TypeError('Heap lowering: property assignment requires a proven object');
+    if(n.op==='JsObjectCreate'&&!only(args[0],new Set(['object','null'])))throw new TypeError('Heap lowering: Object.create prototype must be an object or null');
     if(n.op==='JsDynamicPropertyGet'&&(!only(args[0],new Set(['object']))||!only(args[1],new Set(['string']))))throw new TypeError('Heap lowering: dynamic property access requires an object and string key');
     if(n.op==='JsDynamicPropertySet'&&(!only(args[0],new Set(['object']))||!only(args[1],new Set(['string']))))throw new TypeError('Heap lowering: dynamic property assignment requires an object and string key');
     if((n.op==='JsIndexGet'||n.op==='JsIndexSet')&&!only(args[0],new Set(['array','uint8array'])))throw new TypeError('Heap lowering: indexed access requires a proven array');

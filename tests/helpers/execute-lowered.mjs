@@ -60,8 +60,8 @@ export function executeLowered(mod, { maxSteps = 100000, arguments: args = [] } 
           case 'Uint8ArrayCreate': value = new Uint8Array(a); break;
           case 'ValueGetIndex': value = a[b]; break;
           case 'ValueSetIndex': a[b]=c;value=c;break;
-          case 'ObjectCreate': value={properties:new Map()};break;
-          case 'ValueGetProperty': value=b==='length'&&(typeof a==='string'||Array.isArray(a)||ArrayBuffer.isView(a))?a.length:a.properties.get(b);break;
+          case 'ObjectCreate': value={properties:new Map(),prototype:b};break;
+          case 'ValueGetProperty': {let obj=a;value=b==='length'&&(typeof a==='string'||Array.isArray(a)||ArrayBuffer.isView(a))?a.length:undefined;while(obj&&obj.properties){if(obj.properties.has(b)){value=obj.properties.get(b);break;}obj=obj.prototype;}break;}
           case 'ValueSetProperty': a.properties.set(b,c);value=c;break;
           case 'ValueAdd': value = a + b; break;
           case 'ValueNull': value = null; break;

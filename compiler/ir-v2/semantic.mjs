@@ -9,6 +9,7 @@ const spec = {
     JsString: { args: [], result: 'value', fields: ['value'], literal: x => typeof x === 'string' },
     JsStringLength: { args: ['value'], result: 'value' },
     JsObject: { variadic: 'value', result: 'value', fields: ['keys'], literalField:'keys', literal: x => Array.isArray(x) && x.every(k=>typeof k==='string') },
+    JsObjectCreate: { args: ['value'], result: 'value' },
     JsPropertyGet: { args: ['value'], result: 'value', fields: ['key'], literalField:'key', literal: x => typeof x==='string' },
     JsPropertySet: { args: ['value','value'], result: 'value', fields: ['key'], literalField:'key', literal: x => typeof x==='string' },
     JsDynamicPropertyGet: { args: ['value','value'], result: 'value' },

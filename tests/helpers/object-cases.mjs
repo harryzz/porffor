@@ -2,6 +2,7 @@ export const objectCases=[
  {name:'literal-and-missing',source:'let o={a:1,b:"two",c:null};console.log(o.a);console.log(o.b);console.log(o.c);console.log(o.missing);',expected:[1,'two',null,undefined]},
  {name:'fixed-computed-name',source:'let o={"dash-key":"yes",plain:2};console.log(o["dash-key"]);o["dash-key"]="changed";console.log(o["dash-key"]);',expected:['yes','changed']},
  {name:'dynamic-string-key',source:'let key="name";let o={name:"before"};console.log(o[key]);o[key]="after";console.log(o.name);let second="added";o[second]=3;console.log(o["added"]);',expected:['before','after',3]},
+ {name:'prototype-chain-and-shadowing',source:'let root={root:"root",shared:"root"};let middle=Object.create(root);middle.middle="middle";let child=Object.create(middle);child.shared="child";console.log(child.root);console.log(child.middle);console.log(child.shared);console.log(root.shared);let isolated=Object.create(null);isolated.value=9;console.log(isolated.value);console.log(isolated.missing);',expected:['root','middle','child','root',9,undefined]},
  {name:'mutation-and-new-property',source:'let o={a:1};console.log(o.a=4);o.b="new";console.log(o.a);console.log(o.b);',expected:[4,4,'new']},
  {name:'shorthand-and-duplicate',source:'let a=7;let o={a,a:8};console.log(o.a);',expected:[8]},
  {name:'calls',source:'function get(o){return o.value;}function set(o,v){o.value=v;return o.value;}let o={value:2};console.log(get(o));console.log(set(o,"ok"));console.log(get(o));',expected:[2,'ok','ok']},

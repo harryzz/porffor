@@ -11,7 +11,7 @@ const ops = {
   Uint8ArrayCreate: { args: ['f64'], result: 'jsval', effects: ['allocate', 'memory-read', 'memory-write', 'may-trap'] },
   ValueGetIndex: { args: ['jsval', 'jsval'], result: 'jsval', effects: ['memory-read', 'may-trap'] },
   ValueSetIndex: { args: ['jsval', 'jsval', 'jsval'], result: 'jsval', effects: ['memory-read', 'memory-write', 'may-trap'] },
-  ObjectCreate: { args: ['f64'], result: 'jsval', effects: ['allocate', 'memory-read', 'memory-write', 'may-trap'] },
+  ObjectCreate: { args: ['f64','jsval'], result: 'jsval', effects: ['allocate', 'memory-read', 'memory-write', 'may-trap'] },
   ValueGetProperty: { args: ['jsval','jsval'], result: 'jsval', effects: ['memory-read', 'may-trap'] },
   ValueSetProperty: { args: ['jsval','jsval','jsval'], result: 'jsval', effects: ['memory-read','memory-write','may-trap'] },
   ValueNull: { args: [], result: 'jsval' },

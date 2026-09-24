@@ -22,5 +22,9 @@ test('overflow property pages grow while preserving prior fields',()=>{
  source+='console.log(o.k0);console.log(o.k8);console.log(o.k24);';
  assert.deepEqual(wasm(source),[1,9,25]);
 });
-for(const source of ['console.log({a:1});','console.log({}==={});','console.log({}+"");','let key=1;let o={a:1};console.log(o[key]);','let o={get a(){return 1;}};','let o={...{a:1}};'])
+test('collector traces a prototype after its creating frame returns',()=>{
+ const source='function make(){let proto={retained:"through-prototype"};return Object.create(proto);}let child=make();for(let i=0;i<500;i++){let garbage="garbage="+i;}console.log(child.retained);';
+ assert.deepEqual(wasm(source,16384),['through-prototype']);
+});
+for(const source of ['console.log({a:1});','console.log({}==={});','console.log({}+"");','let key=1;let o={a:1};console.log(o[key]);','Object.create(1);','let Object={create:null};Object.create(null);','let o={get a(){return 1;}};','let o={...{a:1}};'])
  test(`reject unsupported object boundary: ${source}`,()=>assert.throws(()=>compile(source)));

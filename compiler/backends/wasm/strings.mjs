@@ -69,11 +69,11 @@ export function stringHelpers(texts,{heapBytes=STRING_HEAP_BYTES}={}) {
     ...fail([...get(1),...gg(0),...i32(rootBytes+8),0x6a,0x49]),...fail([...get(1),...gg(0),0x6b,...i32(7),0x71]),
     ...fail([...get(1),...gg(0),0x6b,...gg(1),...i32(8),0x6b,0x4b]),...get(1),...i32(4),0x6b,...load,...set(2),
     ...fail([...get(2),0x45]),...fail([...get(2),...i32(3),0x4b]),...get(1),...i32(8),0x6b,...load,...set(2),
-    ...fail([...get(2),...i32(152),0x49]),...fail([...get(2),...i32(7),0x71]),
+    ...fail([...get(2),...i32(160),0x49]),...fail([...get(2),...i32(7),0x71]),
     ...fail([...get(1),...gg(0),0x6b,...i32(8),0x6b,...get(2),0x6a,...gg(1),0x4b]),
     ...get(1),...load,...set(3),...get(1),...loadAt(4),...set(4),
     ...fail([...get(4),...i32(8),0x49]),...fail([...get(3),...get(4),0x4b]),
-    ...fail([...get(4),...get(2),...i32(24),0x6b,...i32(4),0x76,0x4b]),...get(1)
+    ...fail([...get(4),...get(2),...i32(32),0x6b,...i32(4),0x76,0x4b]),...get(1)
   ])};
   r.MarkValue={params:['jsval'],result:'none',dependencies:['StringPointer','ArrayPointer','Uint8ArrayPointer','ObjectPointer'],emit:call=>body(['i32','i32','i32'],[
     ...isString(0),0x04,0x40,...get(0),...call('StringPointer'),...set(1),...get(1),...i32(4),0x6b,...i32(3),...store,0x0f,0x0b,
@@ -89,10 +89,10 @@ export function stringHelpers(texts,{heapBytes=STRING_HEAP_BYTES}={}) {
       ...get(1),...i32(4),0x6b,...load,...i32(3),0x46,0x04,0x40,0x0f,0x0b,
       ...get(1),...i32(4),0x6b,...i32(3),...store,...get(1),...load,...set(2),...i32(0),...set(3),
       0x02,0x40,0x03,0x40,...get(3),...get(2),0x4f,0x0d,1,
-        ...get(1),...i32(16),0x6a,...get(3),...i32(16),0x6c,0x6a,...load64,...call('MarkValue'),
         ...get(1),...i32(24),0x6a,...get(3),...i32(16),0x6c,0x6a,...load64,...call('MarkValue'),
+        ...get(1),...i32(32),0x6a,...get(3),...i32(16),0x6c,0x6a,...load64,...call('MarkValue'),
         ...get(3),...i32(1),0x6a,...set(3),0x0c,0,0x0b,0x0b,
-      ...get(1),...i32(8),0x6a,...load64,...call('MarkValue'),
+      ...get(1),...i32(8),0x6a,...load64,...call('MarkValue'),...get(1),...i32(16),0x6a,...load64,...call('MarkValue'),
     0x0b
   ])};
   r.Sweep={params:[],result:'none',dependencies:['HeapInit'],emit:call=>body(['i32','i32','i32','i32'],[
@@ -153,20 +153,22 @@ export function stringHelpers(texts,{heapBytes=STRING_HEAP_BYTES}={}) {
     ...get(2),...i32(4),0x6a,...i32(0),...get(1),0xfc,11,0,...tagFor(VALUE_UINT8ARRAY,get(2))
   ])};
   const objectPageProperties=8;
-  r.ObjectCreate={params:['f64'],result:'jsval',dependencies:['HeapAlloc'],emit:call=>body(['i32','i32'],[
-    ...get(0),0xfc,3,...set(1),...fail([...get(1),0xb8,...get(0),0x62]),...i32(objectPageProperties),...set(1),
-    ...get(1),...i32(16),0x6c,...i32(24),0x6a,...call('HeapAlloc'),...set(2),
-    ...get(2),...i32(0),...store,...get(2),...get(1),...storeAt(4),...get(2),...i64(0n),...store64At(8),
-    ...get(2),...i32(16),0x6a,...i32(0),...get(1),...i32(16),0x6c,0xfc,11,0,...tagFor(VALUE_OBJECT,get(2))
+  r.ObjectCreate={params:['f64','jsval'],result:'jsval',dependencies:['HeapAlloc'],emit:call=>body(['i32','i32'],[
+    ...get(0),0xfc,3,...set(2),...fail([...get(2),0xb8,...get(0),0x62]),...i32(objectPageProperties),...set(2),
+    ...i32(160),...call('HeapAlloc'),...set(3),
+    ...get(3),...i32(0),...store,...get(3),...get(2),...storeAt(4),...get(3),...i64(0n),...store64At(8),
+    ...get(3),...get(1),...store64At(16),
+    ...get(3),...i32(24),0x6a,...i32(0),...get(2),...i32(16),0x6c,0xfc,11,0,...tagFor(VALUE_OBJECT,get(3))
   ])};
   r.ObjectGet={params:['jsval','jsval'],result:'jsval',dependencies:['ObjectPointer','StringEqual'],emit:call=>body(['i32','i32','i32'],[
     0x02,0x40,0x03,0x40,
       ...get(0),...call('ObjectPointer'),...set(2),...get(2),...load,...set(3),...i32(0),...set(4),
       0x02,0x40,0x03,0x40,...get(4),...get(3),0x4f,0x0d,1,
-        ...get(2),...i32(16),0x6a,...get(4),...i32(16),0x6c,0x6a,...load64,...get(1),...call('StringEqual'),0x04,0x40,
-          ...get(2),...i32(24),0x6a,...get(4),...i32(16),0x6c,0x6a,...load64,0x0f,0x0b,
+        ...get(2),...i32(24),0x6a,...get(4),...i32(16),0x6c,0x6a,...load64,...get(1),...call('StringEqual'),0x04,0x40,
+          ...get(2),...i32(32),0x6a,...get(4),...i32(16),0x6c,0x6a,...load64,0x0f,0x0b,
         ...get(4),...i32(1),0x6a,...set(4),0x0c,0,0x0b,0x0b,
-      ...get(2),...i32(8),0x6a,...load64,...set(0),...get(0),0xa7,0x45,0x04,0x40,...i64(VALUE_UNDEFINED),0x0f,0x0b,
+      ...get(2),...i32(8),0x6a,...load64,...set(0),...get(0),0xa7,0x45,0x45,0x04,0x40,0x0c,1,0x0b,
+      ...get(2),...i32(16),0x6a,...load64,...set(0),...get(0),0xa7,0x45,0x04,0x40,...i64(VALUE_UNDEFINED),0x0f,0x0b,
       0x0c,0,
     0x0b,0x0b,...i64(VALUE_UNDEFINED)
   ])};
@@ -174,21 +176,21 @@ export function stringHelpers(texts,{heapBytes=STRING_HEAP_BYTES}={}) {
     ...get(0),...set(6),
     0x02,0x40,0x03,0x40,...get(6),...call('ObjectPointer'),...set(3),...get(3),...load,...set(4),...i32(0),...set(5),
       0x02,0x40,0x03,0x40,...get(5),...get(4),0x4f,0x0d,1,
-        ...get(3),...i32(16),0x6a,...get(5),...i32(16),0x6c,0x6a,...load64,...get(1),...call('StringEqual'),0x04,0x40,
-          ...get(3),...i32(24),0x6a,...get(5),...i32(16),0x6c,0x6a,...get(2),...store64,...get(2),0x0f,0x0b,
+        ...get(3),...i32(24),0x6a,...get(5),...i32(16),0x6c,0x6a,...load64,...get(1),...call('StringEqual'),0x04,0x40,
+          ...get(3),...i32(32),0x6a,...get(5),...i32(16),0x6c,0x6a,...get(2),...store64,...get(2),0x0f,0x0b,
         ...get(5),...i32(1),0x6a,...set(5),0x0c,0,0x0b,0x0b,
       ...get(4),...i32(8),0x49,0x04,0x40,
-        ...get(3),...i32(16),0x6a,...get(4),...i32(16),0x6c,0x6a,...get(1),...store64,
-        ...get(3),...i32(24),0x6a,...get(4),...i32(16),0x6c,0x6a,...get(2),...store64,
+        ...get(3),...i32(24),0x6a,...get(4),...i32(16),0x6c,0x6a,...get(1),...store64,
+        ...get(3),...i32(32),0x6a,...get(4),...i32(16),0x6c,0x6a,...get(2),...store64,
         ...get(3),...get(4),...i32(1),0x6a,...store,...get(2),0x0f,
       0x0b,
       ...get(3),...i32(8),0x6a,...load64,...set(6),...get(6),0xa7,0x45,0x04,0x40,
-        ...i32(152),...call('HeapAlloc'),...set(7),...get(7),...i32(0),...store,...get(7),...i32(8),...storeAt(4),
-        ...get(7),...i64(0n),...store64At(8),...get(3),...i32(8),0x6a,...tagFor(VALUE_OBJECT,get(7)),...store64,
+        ...i32(160),...call('HeapAlloc'),...set(7),...get(7),...i32(0),...store,...get(7),...i32(8),...storeAt(4),
+        ...get(7),...i64(0n),...store64At(8),...get(7),...i64(0n),...store64At(16),...get(3),...i32(8),0x6a,...tagFor(VALUE_OBJECT,get(7)),...store64,
         ...tagFor(VALUE_OBJECT,get(7)),...set(6),
       0x05,0x0c,1,0x0b,...get(6),...call('ObjectPointer'),...set(3),...get(3),...load,...set(4),
-      ...get(3),...i32(16),0x6a,...get(4),...i32(16),0x6c,0x6a,...get(1),...store64,
-      ...get(3),...i32(24),0x6a,...get(4),...i32(16),0x6c,0x6a,...get(2),...store64,
+      ...get(3),...i32(24),0x6a,...get(4),...i32(16),0x6c,0x6a,...get(1),...store64,
+      ...get(3),...i32(32),0x6a,...get(4),...i32(16),0x6c,0x6a,...get(2),...store64,
       ...get(3),...get(4),...i32(1),0x6a,...store,0x0c,0,
     0x0b,0x0b,...i64(VALUE_UNDEFINED)
   ])};

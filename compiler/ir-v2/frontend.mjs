@@ -92,7 +92,7 @@ function checkSyntax(node, topLevel = false, dynamic = false) {
     case 'CallExpression':
       if (node.callee.type === 'MemberExpression') {
         const c = node.callee;
-        if (c.computed || c.optional || c.object.type !== 'Identifier' || !((c.object.name === 'console' && c.property.name === 'log') || (c.object.name === 'Math' && c.property.name === 'imul') || (c.object.name === 'Porffor' && ['argumentCount', 'argumentNumber'].includes(c.property.name))))
+          if (c.computed || c.optional || c.object.type !== 'Identifier' || !((c.object.name === 'console' && c.property.name === 'log') || (c.object.name === 'Math' && c.property.name === 'imul') || (c.object.name === 'Porffor' && ['argumentCount', 'argumentNumber'].includes(c.property.name)) || (dynamic && c.object.name === 'Object' && c.property.name === 'create')))
           reject(node, 'only console.log, Math.imul and the numeric Porffor argument API are supported as member calls');
       } else if (node.callee.type !== 'Identifier' || node.callee.name === 'eval') {
         reject(node, 'only direct function calls are supported');
@@ -181,6 +181,11 @@ class FunctionBuilder {
         this.state.env.set(b, after); return node.prefix ? after : before;
       }
       case 'CallExpression': {
+        if (node.callee.type==='MemberExpression'&&node.callee.object.name==='Object'&&node.callee.property.name==='create') {
+          if (!this.dynamic||node.callee.object._resolvedVariable) reject(node,'Object.create must be the unshadowed built-in');
+          if (node.arguments.length!==1) reject(node,'Object.create requires one prototype argument');
+          return this.emit('JsObjectCreate',[this.expression(node.arguments[0])]);
+        }
         if (node.callee.type === 'MemberExpression' && node.callee.object.name === 'Porffor') {
           if (node.callee.object._resolvedVariable) reject(node, 'argument API requires unshadowed Porffor');
           const count = node.callee.property.name === 'argumentCount';

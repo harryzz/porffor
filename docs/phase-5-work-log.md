@@ -235,6 +235,16 @@ Added runtime string-key reads and writes for ordinary objects. Fixed dot and li
 
 AI disclosure: OpenAI Codex authored this increment. Work remains local; no remote PR, message, or push was submitted.
 
+## Increment 8 — explicit object prototype chains (2026-09-24)
+
+Added the minimal explicit prototype surface through unshadowed `Object.create(proto)`, where `proto` must be an object or `null`. Reads search own fields, linked overflow pages, and then each prototype. Writes continue to affect only the receiver's own fields. Ordinary literals use a null-like prototype because built-in `Object.prototype` behavior is outside this runtime slice; prototype mutation and built-in prototype objects remain unsupported.
+
+Expanded the object payload with a traced prototype reference and moved property slots by eight bytes. The collector marks prototype links along with overflow pages, keys, and values. The lowered interpreter models the same lookup behavior. Tests cover multi-level inheritance, own-property shadowing, null prototypes, primitive-prototype rejection, shadowed `Object`, and a prototype retained solely through a returned child during forced collection.
+
+`node --test tests/object-values.test.mjs`, `node --test tests/object-differential.test.mjs`, and `node --test tests/object-component.test.mjs` pass (23, 12, and 14 tests). This includes Node/C/Wasm differential behavior and Wasmtime component runs. The combined 361-test IR/backend regression command and `git diff --check` also pass.
+
+AI disclosure: OpenAI Codex authored this increment. Work remains local; no remote PR, message, or push was submitted.
+
 ## Increment 7 — expandable object property storage (2026-09-24)
 
 Added linked property pages so an ordinary object can grow while preserving its identity. Each object keeps eight inline slots. When those fill, a new eight-slot heap page is linked from the stable object block. Further pages chain from that page. Page blocks use the same checked object representation, allowing the existing tag-directed collector to mark each page and recursively retain its keys and values. Fixed and computed string keys use the same lookup path.
