@@ -235,6 +235,16 @@ Added runtime string-key reads and writes for ordinary objects. Fixed dot and li
 
 AI disclosure: OpenAI Codex authored this increment. Work remains local; no remote PR, message, or push was submitted.
 
+## Increment 10 — exception IR design and component feasibility (2026-09-24, in progress)
+
+Confirmed IR v2 does not implement `throw` or `try/catch`: `ThrowStatement` is rejected in the frontend, and there are no exceptional operations or edges in semantic/lowered IR. The legacy IR has similarly named nodes, but they are not used by IR v2.
+
+Probed the pinned Wasmtime 46.0.3 and wasm-tools 1.252.0. Core Wasm exception tags and `try_table` validate, and Wasmtime runs a caught-throw module with `exceptions` and `gc` enabled. The current WASI 0.3 adapter rejects an exception-bearing program with `unsupported section 13 in adapter`. A control module using multi-value function results packages successfully. Based on this evidence, the proposed IR design uses explicit completion status/value returns and normal/exceptional invoke edges rather than Wasm EH instructions. The contract and test boundary are in [exception-values.md](exception-values.md).
+
+This increment is still in progress: exception lowering, backend behavior, differential tests, and component tests have not yet been implemented.
+
+AI disclosure: OpenAI Codex performed and documented the toolchain probes. No remote PR, message, or push was submitted.
+
 ## Increment 9 — captured arrow closures and indirect calls (2026-09-24)
 
 Added a bounded closure runtime slice. Synchronous arrow functions can capture lexically visible `const` bindings, be assigned to locals, returned from functions, and called indirectly. Each closure owns a heap environment object. Closure calls pack arguments into an array and share a uniform `(environment, arguments) -> jsval` Wasm signature. The backend dispatches on the checked closure target index. Wasm tables and element sections were rejected by the current component adapter, so dispatch stays within the adapter's supported core module subset.
