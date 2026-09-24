@@ -249,6 +249,8 @@ Inspected the `wasm-tools` 1.259.0 source for the adapter error. `wit-component`
 
 Further source inspection found more adapter GC gaps beyond section parsing: the operator liveness visitor ignores tag indices and marks `try_table` as unimplemented, and the encoder has no tag-index remapping table. So EH support in this path needs a complete tag-aware liveness/re-encoding change, not merely a new section parser arm.
 
+Checked interaction with Porffor's manual collector: Wasmtime 49 runs a caught `i64` exception payload with WasmGC disabled, but the compiler's linear-memory shadow stack is not unwound automatically. EH propagation across calls would skip generated `RootLeave` epilogues, so native Wasm EH would need cleanup/rethrow landing pads that also root the thrown `jsval`. Completion results would instead use the existing normal frame cleanup path.
+
 This increment is still in progress: exception lowering, backend behavior, differential tests, and component tests have not yet been implemented.
 
 AI disclosure: OpenAI Codex performed and documented the toolchain probes. No remote PR, message, or push was submitted.
