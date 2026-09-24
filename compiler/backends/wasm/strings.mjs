@@ -4,7 +4,7 @@
 import {body,get,set,i32,i64,f64,uleb} from './encoding.mjs';
 import {primitiveHelpers} from './primitives.mjs';
 import {VALUE_STRING,VALUE_ARRAY,VALUE_UINT8ARRAY,VALUE_OBJECT,VALUE_FUNCTION,VALUE_NULL,VALUE_UNDEFINED,VALUE_FALSE,VALUE_TRUE,STRING_HEAP_BYTES} from '../../runtime-v2/value-layout.mjs';
-const gg=i=>[0x23,...uleb(i)],gs=i=>[0x24,...uleb(i)];
+const defaultGlobalGet=i=>[0x23,...uleb(i)],defaultGlobalSet=i=>[0x24,...uleb(i)];
 const isString=i=>[...get(i),...i64(0xffffffff00000000n),0x83,...i64(VALUE_STRING),0x51];
 const isTag=(i,value)=>[...get(i),...i64(0xffffffff00000000n),0x83,...i64(value),0x51];
 const eq=(i,v)=>[...get(i),...i64(v),0x51];
@@ -14,7 +14,8 @@ const loadAt=o=>[0x28,2,...uleb(o)],load64At=o=>[0x29,3,...uleb(o)],storeAt=o=>[
 const tag=p=>[...p,0xad,...i64(VALUE_STRING),0x84];
 const tagFor=(value,p)=>[...p,0xad,...i64(value),0x84];
 
-export function stringHelpers(texts,{heapBytes=STRING_HEAP_BYTES}={}) {
+export function stringHelpers(texts,{heapBytes=STRING_HEAP_BYTES,globalGet=defaultGlobalGet,globalSet=defaultGlobalSet}={}) {
+  const gg=globalGet,gs=globalSet;
   const rootBytes=Math.min(65536,Math.max(64,Math.floor(heapBytes/64)*8));
   if(heapBytes<256||rootBytes+32>heapBytes)throw new RangeError('String heap is too small for roots and objects');
   const literals=new Map([...new Set([...texts,'true','false','null','undefined','length'])].map((s,i)=>[s,{name:`StringLiteral${i}`,global:i+4}]));

@@ -9,6 +9,23 @@ thread_local! {
     static ARGUMENTS: RefCell<Vec<String>> = const { RefCell::new(Vec::new()) };
 }
 
+// Component builds declare the internal program call as WIT so the component
+// linker can describe it. Bare Wasm object builds use a symbol resolved by wasm-ld.
+#[cfg(all(any(target_env = "p2", target_env = "p3"), not(feature = "static-link")))]
+wit_bindgen::generate!({
+    inline: r#"
+        package porffor:internal@0.1.0;
+        interface api {
+            main: func();
+        }
+        world runtime-driver {
+            import api;
+        }
+    "#,
+});
+#[cfg(feature = "static-link")]
+unsafe extern "C" { fn main(); }
+#[cfg(all(not(feature = "static-link"), not(any(target_env = "p2", target_env = "p3"))))]
 #[link(wasm_import_module = "porffor_program")]
 unsafe extern "C" { fn main(); }
 
@@ -116,6 +133,9 @@ impl wasip3::exports::cli::run::Guest for Command {
         // WASI argv[0] is the command name. Expose only user-supplied operands.
         ARGUMENTS.with_borrow_mut(|args| *args = wasip3::cli::environment::get_arguments().into_iter().skip(1).collect());
         OUTPUT.with_borrow_mut(|state| *state = (Vec::new(), false));
+        #[cfg(all(any(target_env = "p2", target_env = "p3"), not(feature = "static-link")))]
+        porffor::internal::api::main();
+        #[cfg(any(feature = "static-link", not(any(target_env = "p2", target_env = "p3"))))]
         unsafe { main(); }
         let (bytes, overflow) = OUTPUT.with_borrow_mut(std::mem::take);
         if overflow { return Err(()); }

@@ -1,0 +1,7 @@
+package porffor:internal@0.1.0;
+interface runtime {
+  print-number: func(value: f64);
+}
+world runtime-host {
+  export runtime;
+}

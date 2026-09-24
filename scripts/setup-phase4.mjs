@@ -11,6 +11,13 @@ for (const [name, pin] of Object.entries(pins)) {
   if (!response.ok) throw new Error(`Download failed: ${response.status} ${pin.url}`);
   const bytes = Buffer.from(await response.arrayBuffer());
   if (createHash('sha256').update(bytes).digest('hex') !== pin.sha256) throw new Error(`Checksum mismatch: ${name}`);
+  if (pin.raw) {
+    const destination = path.join(toolRoot, pin.directory);
+    fs.mkdirSync(destination, { recursive: true });
+    fs.writeFileSync(path.join(destination, pin.executable ?? name), bytes, { mode: 0o755 });
+    console.log(`Installed and verified ${tool(name)}`);
+    continue;
+  }
   const dir = fs.mkdtempSync(path.join(toolRoot, 'download-'));
   try {
     const archive = path.join(dir, 'archive');

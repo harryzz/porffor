@@ -1,0 +1,9 @@
+[package]
+name = "porffor-direct-driver-probe"
+version = "0.1.0"
+edition = "2024"
+[lib]
+crate-type = ["cdylib"]
+[dependencies]
+wasip3 = "=0.8.0"
+wit-bindgen = { version = "=0.60.0", features = ["macros"] }

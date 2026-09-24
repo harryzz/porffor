@@ -1,0 +1,18 @@
+package porffor:internal@0.1.0;
+
+interface runtime {
+  print-number: func(value: f64);
+  print-boolean: func(value: s32);
+  print-null: func();
+  print-undefined: func();
+  argument-count: func() -> f64;
+  argument-number: func(index: f64) -> f64;
+  string-heap-base: func() -> u32;
+  print-string: func(pointer: u32, length: u32);
+  format-number: func(number: f64, pointer: u32) -> u32;
+}
+
+world command-program {
+  import runtime;
+  export main: func();
+}

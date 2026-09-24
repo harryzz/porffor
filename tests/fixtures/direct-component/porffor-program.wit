@@ -1,0 +1,11 @@
+package porffor:internal@0.1.0;
+interface runtime {
+  print-number: func(value: f64);
+}
+interface api {
+  main: func();
+}
+world program {
+  import runtime;
+  export api;
+}

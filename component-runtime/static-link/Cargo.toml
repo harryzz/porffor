@@ -1,9 +1,10 @@
 [package]
-name = "porffor-wasip3-command"
+name = "porffor-wasip3-runtime-archive"
 version = "0.1.0"
 edition = "2024"
 [lib]
-crate-type = ["cdylib", "staticlib"]
+path = "../src/lib.rs"
+crate-type = ["staticlib"]
 [features]
 static-link = []
 [dependencies]

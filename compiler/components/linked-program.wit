@@ -1,0 +1,9 @@
+package porffor:internal@0.1.0;
+
+interface api {
+  main: func();
+}
+
+world linked-program {
+  export api;
+}
