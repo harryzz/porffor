@@ -245,6 +245,8 @@ Then downloaded the latest Wasmtime release, 49.0.0 (Linux x86_64). Its default 
 
 Updated the reproducible pins to Wasmtime 49.0.0 and `wasm-tools` 1.259.0, installed both under `.tools/phase4`, and removed the cached Wasmtime 46.0.3 and `wasm-tools` 1.252.0 directories. The exception adapter probe gives the same result under `wasm-tools` 1.259.0. All 167 component tests pass serially with the new pair. A first concurrent run timed out in three heap-pressure cases; each passes serially, including the GC-heavy array, object, and string cases.
 
+Inspected the `wasm-tools` 1.259.0 source for the adapter error. `wit-component`'s adapter GC pass documents that its module representation is intentionally incomplete; its parser rejects tag imports and has no arm for tag section 13, so that section reaches the generic unsupported-section path. This identifies the specific limitation: the pass cannot track/liveness-trim/re-encode Wasm tags and their references. The current adapter workflow is a project packaging choice because the compiler emits a core module and plugs it into the separately built command runtime. It does not establish that direct component generation/composition would reject EH; that route needs a separate prototype.
+
 This increment is still in progress: exception lowering, backend behavior, differential tests, and component tests have not yet been implemented.
 
 AI disclosure: OpenAI Codex performed and documented the toolchain probes. No remote PR, message, or push was submitted.
