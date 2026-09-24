@@ -321,7 +321,31 @@ The first CLI probe with `[1, 2, 3]` failed at the relocatable-object backend's 
 
 Expanded [runtime-wasip2-command-link.test.mjs](../tests/runtime-wasip2-command-link.test.mjs) to componentize and execute the number/string smoke case and an array case that allocates, mutates an indexed element, adds a number, and reads `length`. Added a third case with a deliberately smaller 256 KiB heap: it retains one array while allocating 12,000 temporary arrays, forcing collection, then reads the retained element. Outputs are `42`/`Hello`, `42`/`3`, and `7`; all components validate and expose only `wasi:cli/run@0.3.0`. All four direct-component/object-link tests pass, and `git diff --check` is clean. This does not test arbitrary heap objects or all root/collector edge cases. No GitHub CI was run.
 
-AI disclosure: OpenAI Codex performed and documented the toolchain probes. No remote PR, message, or push was submitted.
+## Increment 14 — direct-link object properties and nested GC roots (2026-09-24)
+
+Extended the relocatable-object operation boundary for ordinary object allocation and dynamic property reads/writes, including the null/undefined values required by object creation. This reuses the existing object and collector helpers; the production Rust archive supplies the shared heap and command driver.
+
+Added a command test that creates an object, updates a property, and reads it back. A second test keeps a nested object containing an array reachable while allocating 12,000 temporary objects and arrays on a 256 KiB heap, then reads the nested value after collection. Both produce the expected values under Wasmtime 49. The four focused direct-component/object-link tests pass, and `git diff --check` is clean. Broader object semantics such as long property chains, closures and their captured environments remain to be checked in linked mode. No GitHub CI was run.
+
+## Increment 15 — direct-link captured closures (2026-09-24)
+
+Added closure allocation and indirect-call operations to the linked-object subset. The indirect dispatch sequence now emits relocations for calls to `ClosureCode`, `ClosureEnvironment`, and each statically selected lambda body; these call operands were previously fixed function indices and would not survive wasm-ld symbol resolution. This preserves the current no-table dispatch scheme while allowing captured environments and generated lambda functions to share the linked runtime and heap.
+
+Extended the direct Wasip2 command regression with a captured-number closure (`base + x`) and a closure capturing an array retained while 12,000 temporary objects and arrays force collection on a 256 KiB heap. Both execute correctly under Wasmtime 49. All four direct-component/object-link tests and all 46 Wasm backend tests pass; `git diff --check` passes. The linked closure boundary still inherits the frontend's synchronous arrow/const-capture restrictions. No GitHub CI was run.
+
+## Increment 16 — linked closure target and captured-string coverage (2026-09-24)
+
+Reused the six existing closure fixtures in the direct-link Wasip2 integration test, covering independent environments, runtime selection between lambda targets, returned closures, and block-bodied arrows in addition to simple capture/call. Collection fixtures increase the temporary-string loop to 12,000 iterations and use a 256 KiB heap. Added a stronger string-retention case: a function returns a closure whose environment stores the result of runtime string concatenation, so the captured value is heap-allocated; repeated temporary string concatenations force collection before the closure is invoked.
+
+The expanded direct-link suite passes under Wasmtime 49, including both the existing closure fixtures and runtime-created captured-string retention. No compiler behavior changed in this increment. No GitHub CI was run.
+
+## Increment 17 — shipped-example direct-link parity probe (2026-09-24)
+
+Ran the actual `scripts/compile-component.mjs --linked` CLI over all eight shipped numeric, primitive, string, array, and object examples. The first pass identified two missing whitelist entries: `ArgumentCount`/`ArgumentNumber` and `Uint8ArrayCreate`. These operations already had backend/runtime lowering implementations, so the relocatable-object target now admits them. The command-argument example ran with arguments `20 22` and printed `42`; the typed-array example printed its expected length and byte values.
+
+Compared each output against the established `--primitives` adapter route under pinned Wasmtime 49. All eight examples matched exactly, including integer operations, arguments, boxed values, UTF-16 string concatenation, ordinary arrays, typed arrays, and nested object properties. Added the argument and typed-array examples to the repeatable direct-link integration test. This is meaningful sample parity, not a broad Test262 or full language-conformance result. No GitHub CI was run.
+
+AI disclosure: OpenAI Codex performed and documented the toolchain probes. Commit `93aee293` and the subsequent increments are maintained on `harryzz/porffor` branch `js2wasip3/ir-foundation`; pushes use a skip-CI commit marker. No PR or message was submitted.
 
 ## Increment 9 — captured arrow closures and indirect calls (2026-09-24)
 

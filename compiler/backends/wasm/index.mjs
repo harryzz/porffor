@@ -70,9 +70,9 @@ export function emitCoreWasm(mod, { target = 'host', stringHeapBytes } = {}) {
     }
   }
   if (target === 'object') {
-    const supported = new Set(['F64Const', 'F64Add', 'F64Subtract', 'F64Multiply', 'F64Divide', 'F64Equal', 'F64NotEqual', 'F64LessThan', 'F64GreaterThan', 'F64LessEqual', 'F64GreaterEqual', 'F64Negate', 'F64Identity', 'DirectCall', 'ValueString', 'ValueBoxNumber', 'ValueBoxBoolean', 'ValueToNumber', 'ValueUnboxNumber', 'ValueTruthy', 'ValueStrictEqual', 'ValueAdd', 'I32Const', 'I32Equal', 'F64ToInt32', 'F64ToUint32', 'I32ToF64', 'U32ToF64', 'I32BitAnd', 'I32BitOr', 'I32BitXor', 'I32BitNot', 'I32ShiftLeft', 'I32ShiftRight', 'U32ShiftRight', 'I32Multiply', 'U32Add', 'ArrayCreate', 'ValueGetIndex', 'ValueSetIndex', 'ValueLength', 'ValueGetProperty', 'PrintNumber', 'PrintBoolean', 'PrintNull', 'PrintUndefined', 'PrintValue']);
+    const supported = new Set(['F64Const', 'F64Add', 'F64Subtract', 'F64Multiply', 'F64Divide', 'F64Equal', 'F64NotEqual', 'F64LessThan', 'F64GreaterThan', 'F64LessEqual', 'F64GreaterEqual', 'F64Negate', 'F64Identity', 'DirectCall', 'ValueNull', 'ValueUndefined', 'ValueString', 'ValueBoxNumber', 'ValueBoxBoolean', 'ValueToNumber', 'ValueUnboxNumber', 'ValueTruthy', 'ValueStrictEqual', 'ValueAdd', 'I32Const', 'I32Equal', 'F64ToInt32', 'F64ToUint32', 'I32ToF64', 'U32ToF64', 'I32BitAnd', 'I32BitOr', 'I32BitXor', 'I32BitNot', 'I32ShiftLeft', 'I32ShiftRight', 'U32ShiftRight', 'I32Multiply', 'U32Add', 'ArgumentCount', 'ArgumentNumber', 'ArrayCreate', 'Uint8ArrayCreate', 'ValueGetIndex', 'ValueSetIndex', 'ValueLength', 'ObjectCreate', 'ValueGetProperty', 'ValueSetProperty', 'ClosureCreate', 'IndirectCall', 'PrintNumber', 'PrintBoolean', 'PrintNull', 'PrintUndefined', 'PrintValue']);
     if (!mod.functions.some(f => f.name === 'main') || [...used].some(op => !supported.has(op)))
-      throw new TypeError('Wasm object: operation is outside the linked scalar, string, and basic array subset');
+      throw new TypeError('Wasm object: operation is outside the linked scalar, string, array, and basic object subset');
   }
   const heapEnabled = [...used].some(op=>['ValueString','ValueAdd','StringLength','ValueLength','ArrayCreate','Uint8ArrayCreate','ValueGetIndex','ValueSetIndex','ObjectCreate','ClosureCreate','IndirectCall','ValueGetProperty','ValueSetProperty'].includes(op));
   const objectGlobalRefs = new Map();
@@ -198,10 +198,18 @@ export function emitCoreWasm(mod, { target = 'host', stringHeapBytes } = {}) {
       code.push(...get(pc), ...i32(index), 0x46, 0x04, 0x40);
       for (const n of b.instructions) {
         if(n.op==='IndirectCall'){
-          code.push(0x02,0x7e,...read(n.args[0]),0x10,...uleb(helpers.get('ClosureCode').index),...set(closureDispatch));
-          for(let target=0;target<closureFunctions.length;target++){
-            code.push(...get(closureDispatch),...i32(target),0x46,0x04,0x7e,
-              ...read(n.args[0]),0x10,...uleb(helpers.get('ClosureEnvironment').index),...read(n.args[1]),0x10,...uleb(functionIds.get(closureFunctions[target].name)),0x05);
+          code.push(0x02,0x7e,...read(n.args[0]));
+          if (target === 'object') objectCall(helpers.get('ClosureCode').index);
+          else code.push(0x10, ...uleb(helpers.get('ClosureCode').index));
+          code.push(...set(closureDispatch));
+          for(let closureTarget=0;closureTarget<closureFunctions.length;closureTarget++){
+            code.push(...get(closureDispatch),...i32(closureTarget),0x46,0x04,0x7e,...read(n.args[0]));
+            if (target === 'object') objectCall(helpers.get('ClosureEnvironment').index);
+            else code.push(0x10, ...uleb(helpers.get('ClosureEnvironment').index));
+            code.push(...read(n.args[1]));
+            if (target === 'object') objectCall(functionIds.get(closureFunctions[closureTarget].name));
+            else code.push(0x10, ...uleb(functionIds.get(closureFunctions[closureTarget].name)));
+            code.push(0x05);
           }
           code.push(0x00,...Array(closureFunctions.length).fill(0x0b),0x0b);
         } else {
