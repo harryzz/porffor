@@ -247,6 +247,8 @@ Updated the reproducible pins to Wasmtime 49.0.0 and `wasm-tools` 1.259.0, insta
 
 Inspected the `wasm-tools` 1.259.0 source for the adapter error. `wit-component`'s adapter GC pass documents that its module representation is intentionally incomplete; its parser rejects tag imports and has no arm for tag section 13, so that section reaches the generic unsupported-section path. This identifies the specific limitation: the pass cannot track/liveness-trim/re-encode Wasm tags and their references. The current adapter workflow is a project packaging choice because the compiler emits a core module and plugs it into the separately built command runtime. It does not establish that direct component generation/composition would reject EH; that route needs a separate prototype.
 
+Further source inspection found more adapter GC gaps beyond section parsing: the operator liveness visitor ignores tag indices and marks `try_table` as unimplemented, and the encoder has no tag-index remapping table. So EH support in this path needs a complete tag-aware liveness/re-encoding change, not merely a new section parser arm.
+
 This increment is still in progress: exception lowering, backend behavior, differential tests, and component tests have not yet been implemented.
 
 AI disclosure: OpenAI Codex performed and documented the toolchain probes. No remote PR, message, or push was submitted.
