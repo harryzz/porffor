@@ -1,0 +1,27 @@
+import { integerCases } from './integer-cases.mjs';
+export const cases = [
+  ...integerCases,
+  { name: 'add', source: 'function add(a,b){return a+b;} console.log(add(20,22));', expected: [42] },
+  { name: 'sum', source: 'let sum=0;for(let i=0;i<10;i++)sum+=i;console.log(sum);', expected: [45] },
+  { name: 'branches', source: 'let x=2;if(x>1){x=8;}else{x=9;}console.log(x);if(false)x=99;console.log(x);', expected: [8,8] },
+  { name: 'early-return', source: 'function abs(x){if(x<0)return -x;return x;}console.log(abs(-3));console.log(abs(4));', expected: [3,4] },
+  { name: 'two-returns', source: 'function choose(x){if(x)return 1;else return 2;}console.log(choose(false));console.log(choose(true));', expected: [2,1] },
+  { name: 'nested-loops', source: 'let n=0;for(let i=0;i<3;i++){let j=0;while(j<2){n+=i+j;j++;}}console.log(n);', expected: [9] },
+  { name: 'shadowing', source: 'let x=7;{let x=3;x++;console.log(x);}console.log(x);for(let x=0;x<2;x++)console.log(x);console.log(x);', expected: [4,7,0,1,7] },
+  { name: 'evaluation-order', source: 'let x=1;console.log(x++ + ++x);x=1;x+=(x=5);console.log(x);console.log((x=2)+(x=3));console.log(x);', expected: [4,6,5,3], legacyExpected: [4,10,6,3], legacyIssue: 'baseline C backend rereads mutable operands after right-hand writes' },
+  { name: 'call-order', source: 'function sub(a,b){return a-b;}let x=1;console.log(sub(x++,x++));console.log(x);', expected: [-1,3] },
+  { name: 'recursion', source: 'function factorial(n){if(n<=1)return 1;return n*factorial(n-1);}console.log(factorial(6));', expected: [720] },
+  { name: 'mutual-recursion', source: 'function even(n){if(n===0)return true;return odd(n-1);}function odd(n){if(n===0)return false;return even(n-1);}console.log(even(8));console.log(odd(8));', expected: [true,false] },
+  { name: 'floating-and-large-integers', source: 'console.log(1.5*2.25);console.log(2147483647+1);console.log(4294967296+1);console.log(1/4);', expected: [3.375,2147483648,4294967297,0.25] },
+  { name: 'signed-zero', source: 'console.log(-0);console.log(+-0);console.log(1/-0);console.log(-0*2);console.log(-0===0);', expected: [-0,-0,-Infinity,-0,true] },
+  { name: 'nan-and-infinity', source: 'let x=0/0;console.log(x);console.log(x===x);console.log(x!==x);console.log(x<1);console.log(x>=1);console.log(!x);console.log(1/0);', expected: [NaN,false,true,false,false,true,Infinity] },
+  { name: 'truthiness', source: 'function f(x){if(x)return 1;else return 0;}console.log(f(0));console.log(f(-0));console.log(f(0/0));console.log(f(-2));console.log(f(1/0));', expected: [0,0,0,1,1] },
+  { name: 'boolean-values', source: 'console.log(!true);console.log(!false);console.log(true===1);console.log(false!==0);console.log(true!==false);console.log(!(-2));', expected: [false,true,false,true,true,false] },
+  { name: 'loop-condition-effects', source: 'let i=0;let n=0;while(i++<3)n+=i;console.log(i);console.log(n);', expected: [4,6] },
+  { name: 'loop-return', source: 'function f(n){while(n>0){if(n===2)return n;n--;}return 0;}console.log(f(4));console.log(f(0));', expected: [2,0] },
+  { name: 'parallel-block-arguments', source: 'let a=1;let b=2;for(let i=0;i<3;i++){let t=a;a=b;b=t;}console.log(a);console.log(b);', expected: [2,1] },
+  { name: 'effects-through-calls', source: 'function f(x){console.log(x);return x+1;}console.log(f(2)+f(4));', expected: [2,4,8] },
+  { name: 'branch-condition-effects', source: 'let x=0;if(x=4)x+=1;console.log(x);', expected: [5] },
+  { name: 'parameter-assignment', source: 'function f(x){x+=2;if(x>0)x*=3;return x;}console.log(f(1));', expected: [9] },
+  { name: 'empty', source: ';', expected: [] }
+];

@@ -12,3 +12,6 @@ selfhosted/*.c
 # todo: commit some json to git history to help historical/collaborative info
 /test262/*.json
 /test262/.threads
+
+# Pinned experimental component tools (downloaded by setup-phase4.mjs)
+/.tools/

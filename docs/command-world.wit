@@ -1,0 +1,33 @@
+package root:component;
+
+world root {
+  import wasi:cli/environment@0.3.0;
+  import wasi:cli/types@0.3.0;
+  import wasi:cli/stdin@0.3.0;
+  import wasi:cli/stdout@0.3.0;
+
+  export wasi:cli/run@0.3.0;
+}
+package wasi:cli@0.3.0 {
+  interface environment {
+    get-arguments: func() -> list<string>;
+  }
+  interface types {
+    enum error-code {
+      io,
+      illegal-byte-sequence,
+      pipe,
+    }
+  }
+  interface stdin {
+    use types.{error-code};
+  }
+  interface stdout {
+    use types.{error-code};
+
+    write-via-stream: func(data: stream<u8>) -> future<result<_, error-code>>;
+  }
+  interface run {
+    run: async func() -> result;
+  }
+}

@@ -1,0 +1,48 @@
+# Backend coupling inventory
+
+Audited against Porffor `8f01541498d6d61c0cbbf8a71be152330888be7e` on 2026-09-23. This is a migration design, not implemented runtime support. The [generated source index](backend-coupling-sites.md) enumerates matching sites across every tracked compiler, builtin, runtime and selfhost source, including escaped templates in JavaScript builtin generators. Reproduce with `node scripts/backend-coupling-inventory.mjs`; check drift with `--check`.
+
+## Escape mechanisms
+
+| Mechanism and current implementation | Proposed neutral boundary | Proposed direct core-Wasm handling | Blocks numeric prototype? |
+| --- | --- | --- | --- |
+| `porffor.d.ts:14` exposes the C template API; `ir.js` `RawC`; `codegen.js` tagged template `__Porffor_c`; `render.js` `K.RawC` writes arbitrary statement text | No replacement escape instruction. Classify each use into an intrinsic below; reject unsupported syntax | Explicit typed operations or declared runtime imports; unsupported categories fail compilation | Yes: never forward raw strings |
+| `codegen.js:4433` top-level/function-definition templates accumulate `rawHead`; `Prefs.rawHead` is also accepted and `render.js:967` injects it into the translation unit | Runtime function/module registry with typed signatures and explicit dependencies | Internal Wasm functions/data or declared imports | Yes: a separate bypass from `RawC` |
+| `ir.js` `Bin`/`Un` carry operator strings; `Load`/`Store` carry C types; codegen picks ctype strings for typed arrays | Named arithmetic/conversion operations; memory scalar kind, width, signedness, alignment and offset | Numeric instructions and typed loads/stores; reject illegal combinations | Yes for arithmetic; memory later |
+| Renderer `CT`, precedence, reserved C identifiers, casts, compound literals, builtin attributes and compiler intrinsics | Backend-local symbol allocation and instruction selection | Indexed locals/functions, explicit conversions, bit operations | Yes; new backend cannot reuse C rendering |
+| `builtins.js` manufactures raw bodies; `precompile.js` serializes mixed IR into compressed `builtins_precompiled.js` | Versioned semantic builtin modules and validated lowering products | Migrate each source algorithm plus dependencies and differential tests, regenerate cache only when ready | No, provided prototype excludes these builtins |
+| `compiler/index.js`, `runtime/index.js`, `selfhosted/native.js`, `runtime/repl.js` select C/native paths, shell out, embed native shims/TCC | Explicit driver target and host-service interfaces | Direct module writer; component packaging is a separate tool invocation | Yes for target selection, not in this skeleton |
+
+## Runtime categories
+
+Each row covers both source-level escape sites and runtime C templates emitted directly by the renderer. The latter do not pass through `RawC` at all. `Call` may name a renderer-owned helper, so scanning only `Porffor.c` misses dependencies.
+
+| Category / current C implementation and evidence | Proposed intrinsic | Proposed core-Wasm lowering | Blocks numeric prototype? |
+| --- | --- | --- | --- |
+| Printing: codegen constant-string `printf`, console builtin formatting, renderer stdio helpers | `runtime.print_number`, `runtime.write_text`, later `runtime.print(jsval)` | Initially a declared scalar print import; later formatting and WASI stdout boundary | Yes for sample console output |
+| Scalar math: `builtins.js` libm RawC, math.ts `hypot`, renderer f64 conversions, bit counts and reinterpretation | Typed numerical ops, `runtime.math.*` for missing instructions | Native Wasm arithmetic/conversions/reinterpretation; internal library or explicit import for libm equivalents | Basic ops yes; libm no |
+| Value representation: renderer `jsval` C struct, `jsbits` packed u64, `porf_pack/unpack/box`, `.val/.type` accesses | `BoxNumber`, `UnboxNumber`, `ValueTag`, `ValuePayload`, `CanonicalizeNaN` | NaN-boxed i64 values; numeric fast paths f64; preserve negative zero and canonicalize conflicting NaNs | No for specialized subset |
+| Arena/GC: `PORF_BUMP_ALLOC`, `PORF_GC_ALLOC`, malloc/mmap/mprotect/madvise, register/stack scanning, native roots, barriers | `runtime.allocate`, `collect`, `write_barrier`, explicit root registration | Linear-memory offsets, memory.grow, tracing collector with explicit root stack and safepoints; native stack scanning cannot be copied | No; blocks dynamic runtime |
+| Memory/layout: typed arrays/DataView/array_storage, object/map/set/weak collections/string/bigint/regexp helpers directly access `MEM`, pointers and packed structs | Typed loads/stores/copy/fill; abstract object/property/allocation ops above representation selection | Linear-memory loads/stores, bounds policy and unaligned handling, memory.copy/fill; preserve GC barriers | No |
+| String/number/regexp/JSON algorithms: raw helper calls, C loops, memcmp/memchr, generated unicode tables, number formatting | `runtime.string.*`, `runtime.number_format`, `runtime.regexp.*` with typed signatures | Port algorithms to internal lowered functions; static data segments; no implicit libc symbols | No |
+| Object/prototype/closure/call ABI: object and function builtins, renderer metadata lookup tables, C function addresses and env/this/newTarget/argc/argv | `JsGetProperty`, `JsSetProperty`, `JsCreateClosure`, `JsCall`; typed direct/indirect calls after lowering | Function indices and tables, linear-memory environments; explicit JS calling convention | Only simple direct calls |
+| Exceptions: renderer `setjmp`/`longjmp`, try stack, Throw/ThrowNew and native fatal exits | Explicit completion/result edges initially; `runtime.throw` only with defined exception ABI | Plan explicit exceptional return plus propagation, including finally; evaluate Wasm EH separately | No for no-throw subset; unsupported throws must fail |
+| Coroutines: renderer `CORO_RUNTIME`, native fiber stacks, mmap guard pages, x86/ARM assembly or ucontext, generator.ts resume/value | `Suspend`/`Resume` and continuation/frame allocation | State-machine transformation, live values in traced frames; never embed native stack switching | No |
+| Promise jobs: promise.ts reaction queue/barriers and native-fetch reaction kinds 11/12; renderer coroutine reactions | `runtime.enqueue_promise_job`, `dequeue_promise_job`, `resume_coroutine` | Host-neutral scheduler; JS promises remain internal values | No |
+| Thread/Atomics: thread.ts, generated atomics.js, renderer pthreads, locks, parks, fences, TLS, native stack/register capture | Explicit atomic/thread capabilities and safepoints | Deferred; shared-memory atomics only with a supported host contract | No |
+| Timers, HTTP/fetch and event loop: runtime/native-fetch.js, fetch-globals.js, compiler/uwebsockets.js, C++ adapter and renderer native roots/response pointers | Declared host imports, `start_async_import`, `complete_async_export`, timer/resource operations | Canonical ABI boundary adapters and component tasks; no permanent blocking poll loop | No |
+| Time/date/random: builtins.js, date helpers, native time and entropy functions | `runtime.clock.*`, `runtime.random`, calendar/timezone operations | Explicit WASI clock/random imports or deterministic internal algorithms | No |
+| Filesystem/process/env/arguments: selfhosted/native.js and runtime shims use FILE, dirent, stat, fork/exec/wait, getenv, exit | Declared host services and command boundary | WASI filesystem/CLI imports where meaningful; subprocess spawning unsupported without explicit host extension | No; CLI args/failure are Phase 4 |
+| REPL/dynamic native compilation: runtime/repl.js embedded libtcc, symbol pointers, executable code loading | Outside initial AOT target; no generic foreign-code escape | Reject; future host tooling may drive separate compilations | No |
+
+The minimum prototype is a deliberately numeric language subset. General JS operators still need semantic IR before specialization. Unsupported constructs must produce diagnostics rather than reuse the C route implicitly.
+
+## Existing WASI work and portability
+
+The July 15 rewrite is `785b15a7081fd7ebe8f3a2c1f516ad9704e3cb7d`. August's basic WASI commit is `21a8c46c579e7c574b9f192aea9e5b96955d31ee`: it guards process headers and adjusts the malloc-backed mmap arena/decommit assumptions. It does not add a direct Wasm backend, component packaging, portable coroutine stacks, or async WIT bindings.
+
+Core Wasm supplies execution instructions and linear memory. WasmGC is an independent managed-reference facility, not JavaScript semantics. The Component Model supplies WIT boundaries and canonical ABI conversion. WASI 0.3 supplies host interfaces using native component async. None implies the others' implementation here. The initial representation remains linear-memory offsets plus Porffor-style tracing; adapting native GC roots is substantive work. WasmGC is a later optional representation experiment.
+
+## Audit limitations and migration discipline
+
+The lexical index is intentionally conservative and includes comments, helper definitions and C reserved names. It does not parse embedded C or prove runtime reachability. The reviewed tables identify every current escape mechanism; individual migration must analyze its transitive helper dependencies and generated cache content. The compressed cache is fingerprinted and decoded through its existing API to enumerate RawC nodes per builtin, including both compile-time branches and global initializers; its source lines alone are not a useful inventory. Regenerate the index after upstream merges and audit new mechanisms, not just counts. No builtin, renderer or production compilation path is changed by this milestone.

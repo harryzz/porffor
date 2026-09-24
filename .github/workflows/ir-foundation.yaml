@@ -1,0 +1,57 @@
+name: IR foundation baseline
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  baseline:
+    runs-on: ubuntu-24.04
+    container: debian:trixie-slim
+    timeout-minutes: 20
+    steps:
+      - name: Install native baseline toolchain
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends ca-certificates git libc6-dev gcc binutils clang-19=1:19.1.7-3+b1
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20.19.2'
+      - uses: actions/checkout@v4
+        with:
+          repository: tc39/test262
+          ref: 6eec1ac9ee144dafd8f344d73a21f36bfc9f6755
+          path: test262/test262
+      - name: Build, compare and test
+        env:
+          SELFHOST_CC: /usr/bin/clang-19
+        run: node scripts/baseline.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: ir-foundation-baseline-logs
+          path: /tmp/js2wasi-baseline-*/
+          retention-days: 7
+  wasip3-command:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20.19.2'
+      - uses: dtolnay/rust-toolchain@1.95.0
+        with:
+          targets: wasm32-unknown-unknown
+      - name: Install checksum-pinned component tools
+        run: node scripts/setup-phase4.mjs
+      - name: Build runtime and test WASI 0.3 commands
+        run: node scripts/baseline-component.mjs
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: wasip3-command-baseline-logs
+          path: /tmp/js2wasi-component-baseline-*/
+          retention-days: 7

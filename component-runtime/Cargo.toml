@@ -1,0 +1,13 @@
+[package]
+name = "porffor-wasip3-command"
+version = "0.1.0"
+edition = "2024"
+[lib]
+crate-type = ["cdylib"]
+[dependencies]
+wasip3 = "=0.8.0"
+futures = { version = "=0.3.31", default-features = false, features = ["async-await"] }
+ryu-js = "=1.0.2"
+[profile.release]
+opt-level = "s"
+panic = "abort"
