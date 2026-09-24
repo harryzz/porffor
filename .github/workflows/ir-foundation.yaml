@@ -24,6 +24,8 @@ jobs:
           repository: tc39/test262
           ref: 6eec1ac9ee144dafd8f344d73a21f36bfc9f6755
           path: test262/test262
+      - name: Trust the container workspace checkout
+        run: git config --global --add safe.directory "$GITHUB_WORKSPACE"
       - name: Build, compare and test
         env:
           SELFHOST_CC: /usr/bin/clang-19
