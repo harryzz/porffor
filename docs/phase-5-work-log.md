@@ -241,6 +241,8 @@ Confirmed IR v2 does not implement `throw` or `try/catch`: `ThrowStatement` is r
 
 Probed the pinned Wasmtime 46.0.3 and wasm-tools 1.252.0. Core Wasm exception tags and `try_table` validate, and Wasmtime runs a caught-throw module with `exceptions` and `gc` enabled. The current WASI 0.3 adapter rejects an exception-bearing program with `unsupported section 13 in adapter`. A control module using multi-value function results packages successfully. Based on this evidence, the proposed IR design uses explicit completion status/value returns and normal/exceptional invoke edges rather than Wasm EH instructions. The contract and test boundary are in [exception-values.md](exception-values.md).
 
+Follow-up probe: downloaded the latest Wasmtime release, 49.0.0 (Linux x86_64), and verified its default configuration runs the caught-throw core module. It also runs a generated WASI 0.3 command component that prints `42`. Repeating the component-packaging probe with the latest Wasmtime leaves the adapter failure unchanged because packaging is performed by the pinned `wasm-tools` binary.
+
 This increment is still in progress: exception lowering, backend behavior, differential tests, and component tests have not yet been implemented.
 
 AI disclosure: OpenAI Codex performed and documented the toolchain probes. No remote PR, message, or push was submitted.

@@ -8,6 +8,8 @@ The current IR v2 frontend rejects `ThrowStatement` and `TryStatement`; neither 
 
 The pinned tools are Wasmtime 46.0.3 and `wasm-tools` 1.252.0. A core module containing `tag`, `throw`, and `try_table` parses and validates with `wasm-tools`. Wasmtime 46.0.3 executes the caught-throw smoke module when run with `-W exceptions=y -W gc=y`.
 
+Wasmtime 49.0.0 (released 2026-09-21) was also tested from its Linux x86_64 release binary. It executes the same caught-throw core module with default settings, and it runs a generated WASI 0.3 command component. Repeating `component new` with the exception-bearing program still fails in `wasm-tools` 1.252.0 with `unsupported section 13 in adapter`; upgrading only Wasmtime does not change the packaging result.
+
 The current command packaging path cannot accept that program module: `wasm-tools component new ... --adapt porffor_program=...` fails with `unsupported section 13 in adapter` (the exception tag section). This is a `wasm-tools` adapter limitation in the pinned workflow, even though the runtime can execute the core module. A control module using multi-value function results packages through the same adapter successfully. Therefore the first compiler implementation should use explicit completion propagation and avoid emitting Wasm exception sections.
 
 ## Proposed IR contract
